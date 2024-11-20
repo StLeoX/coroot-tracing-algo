@@ -15,6 +15,8 @@ if not ch_user:
     ch_user = 'default'
 
 ch_password = os.getenv('COROOT_CLICKHOUSE_PASSWORD')
+if not ch_password:
+    ch_password = ''
 
 ch_database = os.getenv('COROOT_CLICKHOUSE_DATABASE')
 if not ch_database:
@@ -22,4 +24,4 @@ if not ch_database:
 
 # tracing-algo 算法参数
 
-fetch_timeout = 5  # 每五秒
+fetch_timeout_sec = 5  # 最多五秒
