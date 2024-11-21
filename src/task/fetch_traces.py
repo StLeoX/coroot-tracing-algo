@@ -1,43 +1,46 @@
 """
-从 Clickhouse 拉取 traces 数据，包括不同的列组合方式。
+从 Clickhouse 拉取 Traces 数据，针对 coroot-node-agent 的采集数据也可以认为是拉取 Spans 数据。
 """
 
-from prefect import task
+from prefect import task, get_run_logger, states
 import pandas
-import time
 
 from src.task.init_variables import *
 from src.task.dto.span import Span
 
 
 @task(retries=3, retry_delay_seconds=2)
-def fetch_spans():
+def fetch_spans(util_sec, since_sec):
     """
     从 Clickhouse 拉取 span 数据。
     # todo 这里可以指定一个 batch_size 参数，再结合 timeout 做 batch。
     :return: time-batch spans
     """
-    util_sec = time.time()
-    since_sec = util_sec - fetch_timeout_sec
+    logger = get_run_logger()
 
-    span_columns = ['Timestamp',
-                    'SpanId',
-                    'Duration',
-                    'ServiceName',
-                    'SpanAttributes[\'net.sock.host.addr\'] as HostAddr',
-                    'SpanAttributes[\'net.sock.peer.addr\'] as PeerAddr']
+    fetch_sql = f"SELECT toDateTime64(Timestamp,6) AS TimestampUs, " \
+                f"SpanId, " \
+                f"Duration, " \
+                f"ServiceName, " \
+                f"SpanAttributes[\'net.sock.host.addr\'] AS HostAddr, " \
+                f"SpanAttributes[\'net.sock.peer.addr\'] AS PeerAddr " \
+                f"FROM {t_trace} " \
+                f"WHERE Timestamp > {since_sec.strftime(timestamp_format)} " \
+                f"AND Timestamp <= {util_sec.strftime(timestamp_format)}"
+    logger.debug(fetch_sql)
 
-    sql = f"SELECT {', '.join(span_columns)} " \
-          f"FROM {t_trace} " \
-          f"WHERE Timestamp > {since_sec} AND Timestamp <= {util_sec}"
+    spans_df = pandas.read_sql_query(fetch_sql, ch_engine)
 
-    spans_df = pandas.read_sql_query(sql, ch_engine)
+    if len(spans_df) == 0:
+        return states.Failed(message="empty time_batch")
+    else:
+        logger.info(f"fetch {len(spans_df)} spans")
 
     sid_span_map = {}
     for _, s in spans_df.iterrows():
         sid_span_map[s['SpanId']] = Span('',
                                          s['SpanId'],
-                                         s['Timestamp'],
+                                         s['TimestampUs'],
                                          s['Duration'],
                                          s['HostAddr'],
                                          s['PeerAddr'],

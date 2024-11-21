@@ -1,3 +1,6 @@
+from datetime import timedelta
+
+
 class Span:
     def __init__(
             self,
@@ -12,9 +15,9 @@ class Span:
     ):
         self.span_id = span_id
         self.trace_id = trace_id
-        self.start_time = start_timestamp
-        self.duration = duration
-        self.end_time = start_timestamp + duration
+        self.start_time = start_timestamp  # milliseconds 只支持微秒（6位）
+        self.duration = duration // 1000  # nanoseconds to milliseconds
+        self.end_time = start_timestamp + timedelta(milliseconds=self.duration)
         self.caller = caller
         self.callee = callee
         self.service_name = service_name  # 全局唯一的 service_name，语义类似于 process_id。
@@ -22,7 +25,3 @@ class Span:
         self.parent_span_id = ''
         self.child_spans = []  # 暂时无用。完全使用DB中的ParentSpanId。
         self.references = ()  # 暂时无用，类似于节点的边？
-
-    def append_tgid(self, tgid_req_cs, tgid_resp_cs):
-        self.tgid_req_cs = tgid_req_cs
-        self.tgid_resp_cs = tgid_resp_cs

@@ -4,7 +4,8 @@
 """
 
 import pandas
-from prefect import task
+from prefect import task, states
+from sqlalchemy.sql import text
 
 from src.task.init_variables import *
 from src.task.dto.span import Span
@@ -17,13 +18,29 @@ def update_trace_ids(time_batch_spans):
     :param time_batch_spans:
     :return:
     """
+    if len(time_batch_spans) == 0:
+        return states.Failed(message="empty time_batch")
 
-    updates_sql = ";"
+    logger = get_run_logger()
+
+    should_count = 0
+    updates_sql = ''
     for s in time_batch_spans.values():
         root_span_id = up_find_root_span_id(s, time_batch_spans)
         if root_span_id != '':
             updates_sql += f"ALTER TABLE {t_trace} UPDATE TraceId = {root_span_id} WHERE SpanId = {s.span_id};"
-    pandas.read_sql_query(updates_sql, ch_engine)
+            should_count += 1
+
+    if should_count == 0:
+        return states.Failed(message="empty trace_ids, nothing to update")
+    else:
+        logger.debug(updates_sql)
+
+    with ch_engine.connect() as conn:
+        result = conn.execute(text(updates_sql))
+        actual_count = result.rowcount
+
+    logger.info(f"should update {should_count} records, actually update {actual_count} records.")
 
     # todo history time-batch 中的 span 如何找到并且更新 trace_id？
     # todo 或者说如何理解 update1 与 update2 之间的延迟？两者在逻辑上是完全异步的，只能说延迟越小越能命中内存。
