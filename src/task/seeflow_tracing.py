@@ -3,7 +3,7 @@ SeeFlow 追踪算法。
 """
 
 import pandas
-from prefect import task, states
+from prefect import get_run_logger, task, states
 from sqlalchemy.sql import text
 
 from src.task.init_variables import *
@@ -55,12 +55,14 @@ def find_child_candidates(parent: Span):
     logger = get_run_logger()
 
     parent_callee = f"'{parent.callee}'"
+    parent_container_id = f"'{parent.container_id}'"
     parent_start_time = parent.start_time.strftime(timestamp_format)
     parent_end_time = parent.end_time.strftime(timestamp_format)
     find_sql = f"WITH time_range_ss AS (" \
                f"SELECT TgidRead, TgidWrite " \
                f"FROM {t_l7ss} " \
-               f"WHERE Timestamp > {parent_start_time} " \
+               f"WHERE ContainerId = {parent_container_id} " \
+               f"AND Timestamp > {parent_start_time} " \
                f"AND Timestamp + Duration < {parent_end_time}" \
                f") " \
                f"SELECT SpanId " \
@@ -69,8 +71,10 @@ def find_child_candidates(parent: Span):
                f"AND SpanAttributes[\'net.sock.host.addr\'] = {parent_callee} " \
                f"AND Timestamp > {parent_start_time} " \
                f"AND Timestamp + Duration < {parent_end_time} " \
-               f"AND SpanAttributes['tgid_req_cs'] = toString(TgidRead) " \
-               f"AND SpanAttributes['tgid_resp_cs'] = toString(TgidWrite) "
+               f"AND SpanAttributes['tgid_req_cs'] = TgidRead " \
+               f"AND SpanAttributes['tgid_resp_cs'] = TgidWrite "
+
+    # fixme DECIMAL_OVERFLOW Timestamp + Duration
 
     logger.debug(find_sql)
     child_candidates_df = pandas.read_sql_query(find_sql, ch_engine)
