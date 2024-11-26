@@ -4,7 +4,6 @@ SeeFlow 追踪算法。
 
 import pandas
 from prefect import get_run_logger, task, states
-from sqlalchemy.sql import text
 
 from src.task.init_variables import *
 from src.task.dto.span import Span
@@ -21,10 +20,8 @@ def update_children(time_batch_spans):
     if len(time_batch_spans) == 0:
         return states.Failed(message="empty time_batch")
 
-    logger = get_run_logger()
-
     should_count = 0
-    updates_sql = ''
+    update_sqls = []
     for span in time_batch_spans.values():
         child_candidates = find_child_candidates(span)
         parent_span_id = span.span_id
@@ -33,54 +30,62 @@ def update_children(time_batch_spans):
 
         for child_span_id in child_candidates:
             # 先更新缓存
-            if child_span_id in time_batch_spans.keys():
+            if child_span_id in time_batch_spans:
                 time_batch_spans[child_span_id].parent_span_id = parent_span_id
             # 后更新DB
-            updates_sql += f"ALTER TABLE {t_trace} UPDATE ParentSpanId = {parent_span_id} WHERE SpanId = {child_span_id};"
+            update_sqls.append(f"ALTER TABLE {t_trace} " \
+                               f"UPDATE ParentSpanId = \'{parent_span_id}\' " \
+                               f"WHERE SpanId = \'{child_span_id}\';")
             should_count += 1
 
     if should_count == 0:
-        return states.Failed(message="empty child_candidates, nothing to update")
+        return states.Completed(message="Nothing for `update_children`")
     else:
-        logger.debug(updates_sql)
+        get_run_logger().debug(update_sqls)
 
-    with ch_engine.connect() as conn:
-        result = conn.execute(text(updates_sql))
-        actual_count = result.rowcount
-
-    logger.info(f"should update {should_count} records, actually update {actual_count} records.")
+    actual_count = 0
+    try:
+        for sql in update_sqls:
+            pandas.read_sql_query(sql, ch_engine)
+            actual_count += 1
+    finally:
+        if should_count != actual_count:
+            return states.Failed(message=f"Updated {actual_count} records, but expected {should_count}.")
+        else:
+            return states.Completed(message=f"Updated {actual_count} records.")
 
 
 def find_child_candidates(parent: Span):
     logger = get_run_logger()
 
     parent_callee = f"'{parent.callee}'"
-    parent_container_id = f"'{parent.container_id}'"
     parent_start_time = parent.start_time.strftime(timestamp_format)
     parent_end_time = parent.end_time.strftime(timestamp_format)
     find_sql = f"WITH time_range_ss AS (" \
                f"SELECT TgidRead, TgidWrite " \
                f"FROM {t_l7ss} " \
-               f"WHERE ContainerId = {parent_container_id} " \
-               f"AND Timestamp > {parent_start_time} " \
-               f"AND Timestamp + Duration < {parent_end_time}" \
+               f"WHERE Timestamp > {parent_start_time} " \
+               f"AND addNanoseconds(Timestamp, Duration) < {parent_end_time}" \
                f") " \
-               f"SELECT SpanId " \
-               f"FROM {t_trace}, time_range_ss " \
+               f"SELECT DISTINCT SpanId " \
+               f"FROM time_range_ss, {t_trace} " \
                f"WHERE empty(ParentSpanId) " \
-               f"AND SpanAttributes[\'net.sock.host.addr\'] = {parent_callee} " \
+               f"AND SpanAttributes[\'net.host.name\'] = {parent_callee} " \
                f"AND Timestamp > {parent_start_time} " \
-               f"AND Timestamp + Duration < {parent_end_time} " \
-               f"AND SpanAttributes['tgid_req_cs'] = TgidRead " \
-               f"AND SpanAttributes['tgid_resp_cs'] = TgidWrite "
-
-    # fixme DECIMAL_OVERFLOW Timestamp + Duration
+               f"AND addNanoseconds(Timestamp, Duration) < {parent_end_time} " \
+               f"AND (SpanAttributes['tgid_req_cs'] = TgidRead " \
+               f"OR SpanAttributes['tgid_resp_cs'] = TgidWrite) "
+    # 暂时无并发 span 可通过。
 
     logger.debug(find_sql)
     child_candidates_df = pandas.read_sql_query(find_sql, ch_engine)
-    logger.info(f"found {len(child_candidates_df)} child candidates for span {parent.span_id}")
+    logger.info(f"Found {len(child_candidates_df)} child candidates for span {parent.span_id}.")
 
     child_candidates_sid_list = []
-    for cc in child_candidates_df.iterrows():
-        child_candidates_sid_list.append(cc[0])
+    for _, cc in child_candidates_df.iterrows():
+        child_candidates_sid_list.append(cc['SpanId'])
+
+    if len(child_candidates_df) != 0:
+        logger.info(f"They are {child_candidates_sid_list}.")
+
     return child_candidates_sid_list
