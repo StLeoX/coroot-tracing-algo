@@ -2,11 +2,11 @@
 从 Clickhouse 拉取 Traces 数据，针对 coroot-node-agent 的采集数据也可以认为是拉取 Spans 数据。
 """
 
-from prefect import get_run_logger, task, states
 import pandas
+from prefect import get_run_logger, task, states
 
-from src.task.init_variables import *
 from src.task.dto.span import Span
+from src.task.init_variables import *
 
 
 @task(retries=3, retry_delay_seconds=2)
@@ -42,7 +42,7 @@ def fetch_spans(util_sec, since_sec):
                                          s['ContainerID'],
                                          )
     if len(spans_df) == 0:
-        return states.Failed(message="empty time_batch")
+        return states.Failed(message="Empty time batch")
     else:
         # todo 引入 cache 后直接返回 states.Completed()
         logger.info(f"Fetch {len(spans_df)} spans, they are {[s.container_id for s in sid_span_map.values()]}.")

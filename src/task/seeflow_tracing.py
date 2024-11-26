@@ -5,8 +5,8 @@ SeeFlow 追踪算法。
 import pandas
 from prefect import get_run_logger, task, states
 
-from src.task.init_variables import *
 from src.task.dto.span import Span
+from src.task.init_variables import *
 
 
 @task()
@@ -18,9 +18,8 @@ def update_children(time_batch_spans):
     """
 
     if len(time_batch_spans) == 0:
-        return states.Failed(message="empty time_batch")
+        return states.Failed(message="Empty time batch")
 
-    should_count = 0
     update_sqls = []
     for span in time_batch_spans.values():
         child_candidates = find_child_candidates(span)
@@ -36,8 +35,8 @@ def update_children(time_batch_spans):
             update_sqls.append(f"ALTER TABLE {t_trace} " \
                                f"UPDATE ParentSpanId = \'{parent_span_id}\' " \
                                f"WHERE SpanId = \'{child_span_id}\';")
-            should_count += 1
 
+    should_count = len(update_sqls)
     if should_count == 0:
         return states.Completed(message="Nothing for `update_children`")
     else:
