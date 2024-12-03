@@ -4,7 +4,7 @@
 
 from prefect import Flow
 
-from src.task.fetch_traces import fetch_spans
+from src.task.fetch_spans import fetch_spans
 
 with Flow("TraceWeaver") as TraceWeaver:
     #

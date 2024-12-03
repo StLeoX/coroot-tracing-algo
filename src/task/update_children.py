@@ -1,12 +1,12 @@
 """
-SeeFlow 追踪算法。
+自顶向下更新 parent 属性。
 """
 
 import pandas
 from prefect import get_run_logger, task, states
 
 from src.task.dto.span import Span
-from src.task.init_variables import *
+from src.globals import *
 
 
 @task()
@@ -69,7 +69,7 @@ def find_child_candidates(parent: Span):
                f"SELECT DISTINCT SpanId " \
                f"FROM time_range_ss, {t_trace} " \
                f"WHERE empty(ParentSpanId) " \
-               f"AND SpanAttributes[\'net.host.name\'] = {parent_callee} " \
+               f"AND SpanAttributes['net.host.name'] = {parent_callee} " \
                f"AND Timestamp > {parent_start_time} " \
                f"AND addNanoseconds(Timestamp, Duration) < {parent_end_time} " \
                f"AND (SpanAttributes['tgid_req_cs'] = TgidRead " \

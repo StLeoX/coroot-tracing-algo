@@ -1,5 +1,5 @@
 """
-自底向上更新 trace_id 信息。
+自底向上更新 trace_id 属性。
 该 task 的前提是，各个 ParentSpanId 都被设好了，无论采用何种方式。
 """
 
@@ -7,7 +7,7 @@ import pandas
 from prefect import get_run_logger, task, states
 
 from src.task.dto.span import Span
-from src.task.init_variables import *
+from src.globals import *
 
 
 @task()

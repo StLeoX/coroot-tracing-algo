@@ -6,7 +6,7 @@ import pandas
 from prefect import get_run_logger, task, states
 
 from src.task.dto.span import Span
-from src.task.init_variables import *
+from src.globals import *
 
 
 @task(retries=3, retry_delay_seconds=2)
@@ -21,9 +21,9 @@ def fetch_spans(util_sec, since_sec):
     fetch_sql = f"SELECT toDateTime64(Timestamp,6) AS TimestampUs, " \
                 f"SpanId, " \
                 f"Duration, " \
-                f"ResourceAttributes[\'container.id\'] AS ContainerID, " \
-                f"SpanAttributes[\'net.host.name\'] AS HostIP, " \
-                f"SpanAttributes[\'net.peer.name\'] AS PeerIP " \
+                f"ResourceAttributes['container.id'] AS ContainerID, " \
+                f"SpanAttributes['net.host.name'] AS HostIP, " \
+                f"SpanAttributes['net.peer.name'] AS PeerIP " \
                 f"FROM {t_trace} " \
                 f"WHERE Timestamp > {since_sec.strftime(timestamp_format)} " \
                 f"AND Timestamp <= {util_sec.strftime(timestamp_format)}"

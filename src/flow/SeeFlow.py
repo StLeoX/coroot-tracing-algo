@@ -6,9 +6,9 @@ from datetime import datetime, timedelta
 from prefect import flow
 
 from src.config import *
-from src.task.fetch_traces import fetch_spans
-from src.task.seeflow_tracing import update_children
-from src.task.update_trace_id import update_trace_ids
+from src.task.fetch_spans import fetch_spans
+from src.task.update_children import update_children
+from src.task.update_trace_ids import update_trace_ids
 
 
 @flow(name="SeeFlow")
