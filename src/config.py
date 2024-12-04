@@ -28,5 +28,5 @@ monitoring_delay_sec = 5  # 处理时间落后于墙上时间的延迟，为了�
 fetch_timeout_sec = 5  # 批处理的时间窗口
 
 # 其他配置
-timestamp_format = '\'%Y-%m-%d %H:%M:%S.%f\''  # 通常是微妙精度。
-DEBUG_MODE =True
+timestamp_format = '%Y-%m-%d %H:%M:%S.%f'
+DEBUG_MODE = True

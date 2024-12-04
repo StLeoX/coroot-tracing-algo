@@ -14,3 +14,4 @@ t_trace = f'{ch_database}.otel_traces'
 t_l7ss = f'{ch_database}.l7_events_ss'
 
 t_trace_test = 'test.otel_traces'
+t_l7ss_test = f'test.l7_events_ss'

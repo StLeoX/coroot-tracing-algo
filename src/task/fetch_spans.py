@@ -5,8 +5,8 @@
 import pandas
 from prefect import get_run_logger, task, states
 
-from src.task.dto.span import Span
 from src.globals import *
+from src.task.dto.span import Span
 
 
 @task(retries=3, retry_delay_seconds=2)
@@ -18,6 +18,8 @@ def fetch_spans(util_sec, since_sec):
     """
     logger = get_run_logger()
 
+    since_sec_s = f"'{since_sec.strftime(timestamp_format)}'"
+    util_sec_s = f"'{util_sec.strftime(timestamp_format)}'"
     fetch_sql = f"SELECT toDateTime64(Timestamp,6) AS TimestampUs, " \
                 f"SpanId, " \
                 f"Duration, " \
@@ -25,8 +27,7 @@ def fetch_spans(util_sec, since_sec):
                 f"SpanAttributes['net.host.name'] AS HostIP, " \
                 f"SpanAttributes['net.peer.name'] AS PeerIP " \
                 f"FROM {t_trace} " \
-                f"WHERE Timestamp > {since_sec.strftime(timestamp_format)} " \
-                f"AND Timestamp <= {util_sec.strftime(timestamp_format)}"
+                f"WHERE Timestamp BETWEEN {since_sec_s} AND {util_sec_s} "
     logger.debug(fetch_sql)
 
     spans_df = pandas.read_sql_query(fetch_sql, ch_engine)
@@ -35,8 +36,8 @@ def fetch_spans(util_sec, since_sec):
     for _, s in spans_df.iterrows():
         sid_span_map[s['SpanId']] = Span('',
                                          s['SpanId'],
-                                         s['TimestampUs'],
-                                         s['Duration'],
+                                         s['TimestampUs'],  # 类型 datetime
+                                         s['Duration'] // 1000,  # 类型 int，单位 nanoseconds 转 milliseconds
                                          s['HostIP'],
                                          s['PeerIP'],
                                          s['ContainerID'],
