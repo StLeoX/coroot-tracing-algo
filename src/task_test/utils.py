@@ -1,3 +1,5 @@
+import time
+
 import pandas
 
 from src.globals import *
@@ -15,15 +17,23 @@ def truncate_tables_in_test_database():
     pandas.read_sql_query(f"TRUNCATE TABLE IF EXISTS {t_l7ss_test}", ch_engine)
 
 
+def switch_to_test_database():
+    import src.globals
+    src.globals.t_trace = t_trace_test
+    src.globals.t_l7ss = t_l7ss_test
+
+
 def resync_tables_in_test_database():
     pandas.read_sql_query(f"OPTIMIZE TABLE {t_trace_test}", ch_engine)
+    time.sleep(3)
 
 
 def insert_spans_into_test_database(spans):
     # https://clickhouse.com/docs/zh/sql-reference/data-types/map
-    insert_sql = f"INSERT INTO {t_trace_test} (SpanId, Timestamp, Duration, ResourceAttributes, SpanAttributes) VALUES "
+    insert_sql = f"INSERT INTO {t_trace_test} (SpanId, ParentSpanId, Timestamp, Duration, ResourceAttributes, SpanAttributes) VALUES "
     for span in spans:
         insert_sql += f"('{span.span_id}', " \
+                      f"'{span.parent_span_id}', " \
                       f"'{span.start_time.strftime(timestamp_format)}', " \
                       f"{span.duration * 1000}, " \
                       f"{{'container.id': '{span.container_id}'}}, " \
@@ -46,5 +56,15 @@ def insert_sses_into_test_database(sses):
 
 def query_parent_span_id_from_test_database(span_id):
     query_sql = f"SELECT ParentSpanId FROM {t_trace_test} WHERE SpanId = '{span_id}'"
-    parent_span_id_df = pandas.read_sql_query(query_sql, ch_engine)
-    return parent_span_id_df['ParentSpanId'][0]
+    result_df = pandas.read_sql_query(query_sql, ch_engine)
+    if len(result_df) != 1:
+        return ''
+    return result_df['ParentSpanId'][0]
+
+
+def query_trace_id_from_test_database(span_id):
+    query_sql = f"SELECT TraceId FROM {t_trace_test} WHERE SpanId = '{span_id}'"
+    result_df = pandas.read_sql_query(query_sql, ch_engine)
+    if len(result_df) != 1:
+        return ''
+    return result_df['TraceId'][0]

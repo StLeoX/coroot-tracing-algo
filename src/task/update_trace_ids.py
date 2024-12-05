@@ -6,8 +6,8 @@
 import pandas
 from prefect import get_run_logger, task, states
 
-from src.task.dto.span import Span
 from src.globals import *
+from src.task.dto.span import Span
 
 
 @task()
@@ -26,8 +26,8 @@ def update_trace_ids(time_batch_spans):
         root_span_id = upward_find_root_span_id(span, time_batch_spans)
         if root_span_id != '':
             update_sqls.append(f"ALTER TABLE {t_trace} " \
-                               f"UPDATE TraceId = \'{root_span_id}\' " \
-                               f"WHERE SpanId = \'{span.span_id}\';")
+                               f"UPDATE TraceId = '{root_span_id}' " \
+                               f"WHERE SpanId = '{span.span_id}';")
             discovered_root_span_ids.add(root_span_id)
 
     should_count = len(update_sqls)
@@ -38,8 +38,8 @@ def update_trace_ids(time_batch_spans):
 
     for span_id in discovered_root_span_ids:
         update_sqls.append(f"ALTER TABLE {t_trace} " \
-                           f"UPDATE TraceId = \'{span_id}\' " \
-                           f"WHERE SpanId = \'{span_id}\';")
+                           f"UPDATE TraceId = '{span_id}' " \
+                           f"WHERE SpanId = '{span_id}';")
 
     actual_count = 0
     try:
@@ -79,9 +79,12 @@ def upward_find_root_span_id(span: Span, sid_span_map):
 
 
 def query_parent_span_id(span_id):
-    query_sql = f"SELECT ParentSpanId FROM {t_trace} WHERE SpanId = \'{span_id}\'"
-    get_run_logger().debug(query_sql)
+    logger = get_run_logger()
+    query_sql = f"SELECT ParentSpanId FROM {t_trace} WHERE SpanId = '{span_id}'"
+    logger.debug(query_sql)
     parent_span_id_df = pandas.read_sql_query(query_sql, ch_engine)
-    if len(parent_span_id_df) != 1:
+    if len(parent_span_id_df) == 0:
         return ''
-    return parent_span_id_df['ParentSpanId']
+    elif len(parent_span_id_df) > 1:
+        logger.warning(f"Duplicate SpanId '{span_id}'.")
+    return parent_span_id_df['ParentSpanId'][0]

@@ -42,6 +42,9 @@ class Span:
         self.tgid_write = tgid_write
         self.tgid_read = tgid_read
 
+    def set_parent_span_id(self, parent_span_id):
+        self.parent_span_id = parent_span_id
+
 
 # server-side event, like span
 class SSE:

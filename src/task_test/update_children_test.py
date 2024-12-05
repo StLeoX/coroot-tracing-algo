@@ -13,7 +13,7 @@ class Test_update_children(unittest.TestCase):
     def tearDown(self) -> None:
         truncate_tables_in_test_database()
 
-    def test_update_children(self):
+    def test_case_foo_bar(self):
         foo_span = Span('',
                         '0123456789abcdef',
                         '2024-11-11 11:00:05.123456',
@@ -43,10 +43,7 @@ class Test_update_children(unittest.TestCase):
 
         insert_sses_into_test_database([foo_sse])
 
-        # switching database
-        import src.globals
-        src.globals.t_trace = t_trace_test
-        src.globals.t_l7ss = t_l7ss_test
+        switch_to_test_database()
 
         from src.task.update_children import update_children
         with disable_run_logger():
@@ -54,5 +51,6 @@ class Test_update_children(unittest.TestCase):
 
         resync_tables_in_test_database()  # avoid data race
 
+        # oracles
         self.assertEqual(bar_span.span_id, query_parent_span_id_from_test_database(foo_span.span_id))
         # self.assertEqual(bar_span.span_id, batch_0[foo_span.span_id].parent_span_id) # fixme map KeyError
