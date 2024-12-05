@@ -37,7 +37,7 @@ def fetch_spans(util_sec, since_sec):
         sid_span_map[s['SpanId']] = Span('',
                                          s['SpanId'],
                                          s['TimestampUs'],  # 类型 datetime
-                                         s['Duration'] // 1000,  # 类型 int，单位 nanoseconds 转 milliseconds
+                                         s['Duration'] // 1000,  # 类型 int，单位 nanoseconds 转 microseconds
                                          s['HostIP'],
                                          s['PeerIP'],
                                          s['ContainerID'],

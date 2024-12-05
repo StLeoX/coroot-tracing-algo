@@ -5,8 +5,8 @@
 import pandas
 from prefect import get_run_logger, task, states
 
-from src.task.dto.span import Span
 from src.globals import *
+from src.task.dto.span import Span
 
 
 @task()
@@ -33,8 +33,8 @@ def update_children(time_batch_spans):
                 time_batch_spans[child_span_id].parent_span_id = parent_span_id
             # 后更新DB
             update_sqls.append(f"ALTER TABLE {t_trace} " \
-                               f"UPDATE ParentSpanId = \'{parent_span_id}\' " \
-                               f"WHERE SpanId = \'{child_span_id}\';")
+                               f"UPDATE ParentSpanId = '{parent_span_id}' " \
+                               f"WHERE SpanId = '{child_span_id}';")
 
     should_count = len(update_sqls)
     if should_count == 0:
@@ -57,24 +57,23 @@ def update_children(time_batch_spans):
 def find_child_candidates(parent: Span):
     logger = get_run_logger()
 
-    parent_callee = f"'{parent.callee}'"
+    parent_callee = parent.callee
     parent_start_time = parent.start_time.strftime(timestamp_format)
     parent_end_time = parent.end_time.strftime(timestamp_format)
     find_sql = f"WITH time_range_ss AS (" \
                f"SELECT TgidRead, TgidWrite " \
                f"FROM {t_l7ss} " \
-               f"WHERE Timestamp > {parent_start_time} " \
-               f"AND addNanoseconds(Timestamp, Duration) < {parent_end_time}" \
+               f"WHERE Timestamp > '{parent_start_time}' " \
+               f"AND addNanoseconds(Timestamp, Duration) < '{parent_end_time}'" \
                f") " \
                f"SELECT DISTINCT SpanId " \
                f"FROM time_range_ss, {t_trace} " \
                f"WHERE empty(ParentSpanId) " \
-               f"AND SpanAttributes['net.host.name'] = {parent_callee} " \
-               f"AND Timestamp > {parent_start_time} " \
-               f"AND addNanoseconds(Timestamp, Duration) < {parent_end_time} " \
+               f"AND SpanAttributes['net.host.name'] = '{parent_callee}' " \
+               f"AND Timestamp > '{parent_start_time}' " \
+               f"AND addNanoseconds(Timestamp, Duration) < '{parent_end_time}' " \
                f"AND (SpanAttributes['tgid_req_cs'] = TgidRead " \
                f"OR SpanAttributes['tgid_resp_cs'] = TgidWrite) "
-    # 暂时无并发 span 可通过。
 
     logger.debug(find_sql)
     child_candidates_df = pandas.read_sql_query(find_sql, ch_engine)
