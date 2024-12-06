@@ -32,20 +32,19 @@ def fetch_spans(util_sec, since_sec):
 
     spans_df = pandas.read_sql_query(fetch_sql, ch_engine)
 
-    sid_span_map = {}
+    from src.globals import span_cache
     for _, s in spans_df.iterrows():
-        sid_span_map[s['SpanId']] = Span('',
-                                         s['SpanId'],
-                                         s['TimestampUs'],  # 类型 datetime
-                                         s['Duration'] // 1000,  # 类型 int，单位 nanoseconds 转 microseconds
-                                         s['HostIP'],
-                                         s['PeerIP'],
-                                         s['ContainerID'],
-                                         )
+        span = Span('',
+                    s['SpanId'],
+                    s['TimestampUs'],  # 类型 datetime
+                    s['Duration'] // 1000,  # 类型 int，单位 nanoseconds 转 microseconds
+                    s['HostIP'],
+                    s['PeerIP'],
+                    s['ContainerID'],
+                    )
+        span_cache[span.span_id] = span
+
     if len(spans_df) == 0:
         return states.Failed(message="Empty time batch")
     else:
-        # todo 引入 cache 后直接返回 states.Completed()
-        logger.info(f"Fetch {len(spans_df)} spans, they are {[s.container_id for s in sid_span_map.values()]}.")
-
-    return sid_span_map  # todo 使用更高级的 LRU 结构，取代内置的 map 结构。
+        return states.Completed(message=f"Fetch {len(spans_df)} spans.")

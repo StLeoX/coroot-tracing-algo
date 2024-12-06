@@ -1,7 +1,7 @@
 import unittest
-from datetime import datetime, timedelta
 
 from prefect.logging import disable_run_logger
+from prefect.states import StateType
 
 from src.task.dto.span import Span
 from src.task_test.utils import *
@@ -31,8 +31,13 @@ class Test_fetch_spans(unittest.TestCase):
 
         from src.task.fetch_spans import fetch_spans
         with disable_run_logger():
-            sid_span_map = fetch_spans.fn(util_sec, since_sec)
+            state = fetch_spans.fn(util_sec, since_sec)
 
         # oracles
-        self.assertEqual(1, len(sid_span_map))  # be sure it returns the map
-        self.assertEqual(1_000_000, sid_span_map['0123456789abcdef'].duration)
+        self.assertEqual(StateType.COMPLETED, state.type)
+        from src.globals import span_cache
+        self.assertEqual(1, len(span_cache))
+        self.assertEqual(foo.span_id, span_cache[foo.span_id].span_id)
+
+        time.sleep(cache_timeout_sec)
+        self.assertEqual(0, len(span_cache))

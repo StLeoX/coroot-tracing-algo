@@ -4,3 +4,4 @@ pandas~=2.2.3
 SQLAlchemy~=2.0.36
 clickhouse-driver~=0.2.9
 clickhouse-sqlalchemy~=0.3.2
+cachetools~=5.5.0
