@@ -5,6 +5,7 @@
 import pandas
 from prefect import get_run_logger, task, states
 
+from src.cache import span_cache_seeflow
 from src.globals import *
 from src.task.dto.span import Span
 
@@ -16,6 +17,14 @@ def fetch_spans(util_sec, since_sec):
     # todo 这里可以指定一个 batch_size 参数，再结合 timeout 做 batch。
     :return: time-batch spans
     """
+    span_ids = fetch_spans_helper(util_sec, since_sec, span_cache_seeflow)
+    if len(span_ids) == 0:
+        return states.Failed(message="Empty time batch")
+    else:
+        return states.Completed(message=f"Fetch {len(span_ids)} spans.", data=span_ids)
+
+
+def fetch_spans_helper(util_sec, since_sec, cache_context):
     logger = get_run_logger()
 
     since_sec_s = f"'{since_sec.strftime(timestamp_format)}'"
@@ -32,7 +41,7 @@ def fetch_spans(util_sec, since_sec):
 
     spans_df = pandas.read_sql_query(fetch_sql, ch_engine)
 
-    from src.globals import span_cache
+    span_ids = []
     for _, s in spans_df.iterrows():
         span = Span('',
                     s['SpanId'],
@@ -42,9 +51,6 @@ def fetch_spans(util_sec, since_sec):
                     s['PeerIP'],
                     s['ContainerID'],
                     )
-        span_cache[span.span_id] = span
-
-    if len(spans_df) == 0:
-        return states.Failed(message="Empty time batch")
-    else:
-        return states.Completed(message=f"Fetch {len(spans_df)} spans.")
+        cache_context[span.span_id] = span
+        span_ids.append(span.span_id)
+    return span_ids

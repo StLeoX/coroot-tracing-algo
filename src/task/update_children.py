@@ -5,56 +5,55 @@
 import pandas
 from prefect import get_run_logger, task, states
 
+from src.cache import span_cache_seeflow
 from src.globals import *
-from src.task.dto.span import Span
 
 
 @task()
-def update_children(time_batch_spans):
+def update_children(span_delta):
     """
     更新 parent 属性。
-    :param time_batch_spans: a map
+    :param span_delta 增量 Span 的 span_id 列表。
     :return:
     """
 
-    if len(time_batch_spans) == 0:
+    if len(span_delta) == 0:
         return states.Failed(message="Empty time batch")
 
-    update_sqls = []
-    for span in time_batch_spans.values():
-        child_candidates = find_child_candidates(span)
-        parent_span_id = span.span_id
+    updated_count = update_children_helper(span_delta, span_cache_seeflow)
+    if updated_count == 0:
+        return states.Failed(message="Updated nothing")
+    else:
+        return states.Completed(message=f"Updated {updated_count} spans.")
 
-        # todo 检查 span 之间的 child_candidates 的重叠情况。根据定义是不允许重叠的。当然这里已经用 empty(ParentSpanId) 过滤过。
+
+def update_children_helper(span_ids, cache_context):
+    update_sqls = []
+    for span_id in span_ids:
+        if span_id not in cache_context:
+            continue
+        span = cache_context[span_id]
+        parent_span_id = span_id
+        child_candidates = find_child_candidates(span)
+
+        # todo 检查 span 之间的 child_candidates 的重叠情况，根据定义是不允许重叠的。
 
         for child_span_id in child_candidates:
-            # 先更新缓存
-            if child_span_id in time_batch_spans:
-                time_batch_spans[child_span_id].parent_span_id = parent_span_id
+            # 先更新 Cache
+            # 必须在缓存中才能更新，不能直接插入。
+            if child_span_id in cache_context:
+                cache_context[child_span_id].parent_span_id = parent_span_id
             # 后更新DB
             update_sqls.append(f"ALTER TABLE {t_trace} " \
                                f"UPDATE ParentSpanId = '{parent_span_id}' " \
                                f"WHERE SpanId = '{child_span_id}';")
 
-    should_count = len(update_sqls)
-    if should_count == 0:
-        return states.Completed(message="Nothing for `update_children`")
-    else:
-        get_run_logger().debug(update_sqls)
-
-    actual_count = 0
-    try:
-        for sql in update_sqls:
-            pandas.read_sql_query(sql, ch_engine)
-            actual_count += 1
-    finally:
-        if should_count != actual_count:
-            return states.Failed(message=f"Updated {actual_count} records, but expected {should_count}.")
-        else:
-            return states.Completed(message=f"Updated {actual_count} records.")
+    for sql in update_sqls:
+        pandas.read_sql_query(sql, ch_engine)
+    return len(update_sqls)
 
 
-def find_child_candidates(parent: Span):
+def find_child_candidates(parent):
     logger = get_run_logger()
 
     parent_callee = parent.callee
@@ -79,11 +78,11 @@ def find_child_candidates(parent: Span):
     child_candidates_df = pandas.read_sql_query(find_sql, ch_engine)
     logger.info(f"Found {len(child_candidates_df)} child candidates for span {parent.span_id}.")
 
-    child_candidates_sid_list = []
+    child_candidates_span_ids = []
     for _, cc in child_candidates_df.iterrows():
-        child_candidates_sid_list.append(cc['SpanId'])
+        child_candidates_span_ids.append(cc['SpanId'])
 
     if len(child_candidates_df) != 0:
-        logger.info(f"They are {child_candidates_sid_list}.")
+        logger.info(f"They are {child_candidates_span_ids}.")
 
-    return child_candidates_sid_list
+    return child_candidates_span_ids

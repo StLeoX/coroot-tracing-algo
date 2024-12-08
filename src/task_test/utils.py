@@ -24,8 +24,11 @@ def switch_to_test_database():
 
 
 def resync_tables_in_test_database():
+    '''
+    确保测试数据的同步。
+    '''
     pandas.read_sql_query(f"OPTIMIZE TABLE {t_trace_test}", ch_engine)
-    time.sleep(3)
+    time.sleep(3)  # avoid data race
 
 
 def insert_spans_into_test_database(spans):
