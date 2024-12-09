@@ -17,11 +17,11 @@ def fetch_spans(util_sec, since_sec):
     # todo 这里可以指定一个 batch_size 参数，再结合 timeout 做 batch。
     :return: time-batch spans
     """
-    span_ids = fetch_spans_helper(util_sec, since_sec, span_cache_seeflow)
-    if len(span_ids) == 0:
+    span_delta = fetch_spans_helper(util_sec, since_sec, span_cache_seeflow)
+    if len(span_delta) == 0:
         return states.Failed(message="Empty time batch")
     else:
-        return states.Completed(message=f"Fetch {len(span_ids)} spans.\nThey are {span_ids}.", data=span_ids)
+        return states.Completed(message=f"Fetch {len(span_delta)} spans.\nThey are {span_delta}.", data=span_delta)
 
 
 def fetch_spans_helper(util_sec, since_sec, cache_context):
@@ -41,7 +41,7 @@ def fetch_spans_helper(util_sec, since_sec, cache_context):
 
     spans_df = pandas.read_sql_query(fetch_sql, ch_engine)
 
-    span_ids = []
+    span_delta = []
     for _, s in spans_df.iterrows():
         span = Span('',
                     s['SpanId'],
@@ -52,5 +52,5 @@ def fetch_spans_helper(util_sec, since_sec, cache_context):
                     s['ContainerID'],
                     )
         cache_context[span.span_id] = span
-        span_ids.append(span.span_id)
-    return span_ids
+        span_delta.append(span)
+    return span_delta

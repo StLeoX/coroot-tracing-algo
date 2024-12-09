@@ -13,7 +13,7 @@ from src.task.update_trace_ids_helpers import update_trace_ids_helper
 def update_trace_ids(span_delta):
     """
     更新 trace_id 属性。
-    :param span_delta 增量 Span 的 span_id 列表。
+    :param span_delta 增量 Span 列表。
     :return:
     """
     if len(span_delta) == 0:

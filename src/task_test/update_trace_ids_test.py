@@ -37,7 +37,7 @@ class Test_update_trace_ids(unittest.TestCase):
             # full cache
             span_cache_1 = new_span_cache({foo_span.span_id: foo_span,
                                            bar_span.span_id: bar_span})
-            span_ids_1 = [foo_span.span_id, bar_span.span_id]
+            span_delta_1 = [foo_span, bar_span]
 
             insert_spans_into_test_database([foo_span, bar_span])
 
@@ -45,7 +45,7 @@ class Test_update_trace_ids(unittest.TestCase):
 
             # FUT
             from src.task.update_trace_ids import update_trace_ids_helper
-            update_trace_ids_helper(span_ids_1, span_cache_1)
+            update_trace_ids_helper(span_delta_1, span_cache_1)
 
             resync_tables_in_test_database()
 
@@ -76,7 +76,7 @@ class Test_update_trace_ids(unittest.TestCase):
 
             # cache missed child
             span_cache_1 = new_span_cache({bar_span.span_id: bar_span})
-            span_ids_1 = [bar_span.span_id]
+            span_delta_1 = [bar_span]
 
             insert_spans_into_test_database([foo_span, bar_span])
 
@@ -84,7 +84,7 @@ class Test_update_trace_ids(unittest.TestCase):
 
             # FUT
             from src.task.update_trace_ids import update_trace_ids_helper
-            update_trace_ids_helper(span_ids_1, span_cache_1)
+            update_trace_ids_helper(span_delta_1, span_cache_1)
 
             resync_tables_in_test_database()
             time.sleep(cache_timeout_sec)  # trigger cache timeout
@@ -115,7 +115,7 @@ class Test_update_trace_ids(unittest.TestCase):
 
             # cache missed parent
             span_cache_1 = new_span_cache({foo_span.span_id: foo_span})
-            span_ids_1 = [foo_span.span_id]
+            span_delta_1 = [foo_span]
 
             insert_spans_into_test_database([foo_span, bar_span])
 
@@ -123,7 +123,7 @@ class Test_update_trace_ids(unittest.TestCase):
 
             # FUT
             from src.task.update_trace_ids import update_trace_ids_helper
-            update_trace_ids_helper(span_ids_1, span_cache_1)
+            update_trace_ids_helper(span_delta_1, span_cache_1)
 
             resync_tables_in_test_database()
 

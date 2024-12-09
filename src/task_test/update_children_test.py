@@ -40,7 +40,7 @@ class Test_update_children(unittest.TestCase):
                             '/docker/bar-svc-1')
 
             span_cache_1 = new_span_cache({bar_span.span_id: bar_span})
-            span_ids_1 = [bar_span.span_id]
+            span_delta_1 = [bar_span]
 
             insert_spans_into_test_database([foo_span, bar_span])
 
@@ -50,7 +50,7 @@ class Test_update_children(unittest.TestCase):
 
             # FUT
             from src.task.update_children import update_children_helper
-            update_children_helper(span_ids_1, span_cache_1)
+            update_children_helper(span_delta_1, span_cache_1)
 
             resync_tables_in_test_database()
 

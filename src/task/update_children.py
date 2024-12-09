@@ -13,7 +13,7 @@ from src.globals import *
 def update_children(span_delta):
     """
     更新 parent 属性。
-    :param span_delta 增量 Span 的 span_id 列表。
+    :param span_delta 增量 Span 列表。
     :return:
     """
 
@@ -27,13 +27,10 @@ def update_children(span_delta):
         return states.Completed(message=f"Updated {updated_count} spans.")
 
 
-def update_children_helper(span_ids, cache_context):
+def update_children_helper(span_delta, cache_context):
     update_sqls = []
-    for span_id in span_ids:
-        if span_id not in cache_context:
-            continue
-        span = cache_context[span_id]
-        parent_span_id = span_id
+    for span in span_delta:
+        parent_span_id = span.span_id
         child_candidates = find_child_candidates(span)
 
         # todo 检查 span 之间的 child_candidates 的重叠情况，根据定义是不允许重叠的。

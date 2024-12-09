@@ -28,11 +28,10 @@ class SpanCache(TTLCache):
         items = super().expire(time)
         if items is None:
             return None
-        expired_span_ids = []
-        for span_id, span in items:
-            expired_span_ids.append(span_id)
-        update_trace_ids_helper(expired_span_ids, self)
-        get_run_logger().info(f"Span '{expired_span_ids}' expired.")
+        expired_spans = [s for _, s in items]
+        # deb
+        # update_trace_ids_helper(expired_spans, self)
+        get_run_logger().info(f"Spans {[s.span_id for s in expired_spans]} expired.")
         return items
 
     # todo 更具弹性的缓存？如何理解 update_children 与 update_trace_ids 之间的延迟与命中？

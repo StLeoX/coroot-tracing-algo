@@ -5,13 +5,10 @@ from src.globals import *
 
 
 # 同时被 SpanCache 的成员函数调用。
-def update_trace_ids_helper(span_ids, cache_context):
+def update_trace_ids_helper(span_delta, cache_context):
     update_sqls = []
     discovered_root_span_ids = set()  # 集合去重
-    for span_id in span_ids:
-        if span_id not in cache_context:
-            continue
-        span = cache_context[span_id]
+    for span in span_delta:
         root_span_id = upward_find_root_span_id(span, cache_context)
         if root_span_id != '':
             update_sqls.append(f"ALTER TABLE {t_trace} " \
@@ -32,8 +29,6 @@ def update_trace_ids_helper(span_ids, cache_context):
 def upward_find_root_span_id(span, cache_context):
     """
     向上找到 root。采用双指针遍历。
-    :param span:
-    :return:
     """
     current_span_id = span.span_id
     current_parent_span_id = span.parent_span_id
