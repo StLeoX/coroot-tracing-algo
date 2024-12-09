@@ -27,7 +27,7 @@ if not ch_database:
 monitoring_delay_sec = 5  # 处理时间落后于墙上时间的延迟，为了适应 agent、server 的时延。
 fetch_timeout_sec = 5  # 批处理的时间窗口
 fetch_maxsize = 50  # 批处理数量窗口
-cache_timeout_sec = 5  # 缓存过期时间
+cache_timeout_sec = 10  # 缓存过期时间
 
 # 其他参数
 timestamp_format = '%Y-%m-%d %H:%M:%S.%f'

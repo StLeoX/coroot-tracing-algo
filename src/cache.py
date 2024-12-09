@@ -41,7 +41,7 @@ class SpanCache(TTLCache):
 def new_span_cache(map0={}):
     sc = SpanCache(maxsize=fetch_maxsize,
                    ttl=timedelta(seconds=cache_timeout_sec),
-                   timer=datetime.now)
+                   timer=datetime.utcnow)
     for k, v in map0.items():
         sc[k] = v
     return sc

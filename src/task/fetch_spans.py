@@ -21,7 +21,7 @@ def fetch_spans(util_sec, since_sec):
     if len(span_ids) == 0:
         return states.Failed(message="Empty time batch")
     else:
-        return states.Completed(message=f"Fetch {len(span_ids)} spans.", data=span_ids)
+        return states.Completed(message=f"Fetch {len(span_ids)} spans.\nThey are {span_ids}.", data=span_ids)
 
 
 def fetch_spans_helper(util_sec, since_sec, cache_context):
