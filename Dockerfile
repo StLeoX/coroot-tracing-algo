@@ -1,11 +1,17 @@
-FROM prefecthq/prefect:3.1.0-python3.10
+FROM python:3.10.6-slim-bullseye AS basic
 
 WORKDIR /coroot
 
-COPY . /coroot
+COPY ./requirements.txt .
 
 RUN pip install -i "https://mirrors.aliyun.com/pypi/simple/" -r requirements.txt
 
+FROM basic
+
+WORKDIR /coroot
+
+COPY . .
+
 EXPOSE 4200
 
-ENTRYPOINT ["make", "serve-prod"]
+ENTRYPOINT ["python", "-m", "src.main"]

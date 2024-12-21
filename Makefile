@@ -7,9 +7,3 @@ serve-dev:
 	./venv/bin/prefect server stop
 	./venv/bin/prefect server start -b
 	./venv/bin/python -m src.main
-
-.PHONY:serve-prod
-serve-prod:
-	prefect server start -b
-	prefect config set PREFECT_API_URL=http://127.0.0.1:4200/api
-	python -m src.main
