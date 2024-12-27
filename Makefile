@@ -1,5 +1,5 @@
 docker:
-	docker build . registry.cn-beijing.aliyuncs.com/obser/coroot-tracing-algo:latest
+	docker build . -t registry.cn-beijing.aliyuncs.com/obser/coroot-tracing-algo:v1.24.1-fix
 
 server:
 	./venv/bin/prefect server start &

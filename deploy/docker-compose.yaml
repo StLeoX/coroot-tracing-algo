@@ -1,0 +1,13 @@
+version: '3.8'
+
+name: localhost
+
+services:
+  coroot-tracing-algo:
+    restart: always
+    image: registry.cn-beijing.aliyuncs.com/obser/coroot-tracing-algo:latest
+    environment:
+      COROOT_CLICKHOUSE_ADDRESS: '127.0.0.1:8123'
+      COROOT_TRACING_INTERVAL: 15
+    ports:
+      - "4200:4200"
