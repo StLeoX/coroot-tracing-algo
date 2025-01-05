@@ -1,0 +1,100 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: coroot-tracing-algo
+  namespace: "coroot"
+  labels:
+    helm.sh/chart: coroot-0.16.11
+    app.kubernetes.io/name: coroot-tracing-algo
+    app.kubernetes.io/instance: coroot-tracing-algo
+    app.kubernetes.io/version: "1.6.8"
+    app.kubernetes.io/managed-by: Helm
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: coroot-tracing-algo
+  namespace: "coroot"
+  labels:
+    helm.sh/chart: coroot-0.16.11
+    app.kubernetes.io/name: coroot-tracing-algo
+    app.kubernetes.io/instance: coroot-tracing-algo
+    app.kubernetes.io/version: "1.6.8"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 4200
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: coroot-tracing-algo
+    app.kubernetes.io/instance: coroot-tracing-algo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coroot-tracing-algo
+  namespace: "coroot"
+  labels:
+    helm.sh/chart: coroot-0.16.11
+    app.kubernetes.io/name: coroot-tracing-algo
+    app.kubernetes.io/instance: coroot-tracing-algo
+    app.kubernetes.io/version: "1.6.8"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: coroot-tracing-algo
+      app.kubernetes.io/instance: coroot-tracing-algo
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: coroot-tracing-algo
+        app.kubernetes.io/instance: coroot-tracing-algo
+    spec:
+      imagePullSecrets:
+        - name: ali
+      serviceAccountName: coroot-tracing-algo
+      securityContext:
+        {}
+      containers:
+        - name: coroot-tracing-algo
+          securityContext:
+            {}
+          image: "registry.cn-beijing.aliyuncs.com/obser/coroot-tracing-algo:v0.1.0"
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: COROOT_CLICKHOUSE_ADDRESS
+              value: coroot-clickhouse:8123
+            - name: COROOT_CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: coroot-clickhouse
+                  key: "admin-password"
+            - name: COROOT_CLICKHOUSE_USER
+              value: default
+            - name: COROOT_CLICKHOUSE_DATABASE
+              value: default
+          ports:
+            - name: http
+              containerPort: 4200
+              protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 10
+            httpGet:
+              path: /
+              port: http
+          resources:
+            requests:
+              cpu: 100m
+              memory: 1Gi
