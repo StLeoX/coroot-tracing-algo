@@ -37,4 +37,6 @@ if delay:
 # 其他配置
 timestamp_format = '%Y-%m-%d %H:%M:%S.%f'
 
-DEBUG_MODE = True
+DEBUG_MODE = False
+if os.getenv('COROOT_TRACING_DEBUG'):
+    DEBUG_MODE = True

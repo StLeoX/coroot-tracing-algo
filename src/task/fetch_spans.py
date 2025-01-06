@@ -1,6 +1,7 @@
 """
 从 Clickhouse 拉取 Traces 数据，针对 coroot-node-agent 的采集数据也可以认为是拉取 Spans 数据。
 """
+import logging
 
 import pandas
 from prefect import get_run_logger, task, states
@@ -16,6 +17,8 @@ def fetch_spans(util_sec, since_sec):
     # todo 这里可以指定一个 batch_size 参数，再结合 timeout 做 batch。
     :return: time-batch spans
     """
+    judge_debug_mode()
+
     logger = get_run_logger()
 
     since_sec_s = f"'{since_sec.strftime(timestamp_format)}'"
@@ -54,4 +57,23 @@ def fetch_spans(util_sec, since_sec):
 
 
 def filter_exclude_coroot_spans():
-    return "NOT position(ContainerID, 'coroot') "
+    """
+    excludes:
+    - coroot
+    - node-agent
+    - cluster-agent
+    - coroot-tracing-algo
+
+    OR excludes:
+    - Kubernetes namespace 'coroot'
+    - docker-compose name 'coroot'
+    """
+    return "NOT position(ContainerID, 'coroot') " \
+           "AND NOT position(ContainerID, '-agent')"
+
+
+def judge_debug_mode():
+    if DEBUG_MODE:
+        logger = get_run_logger()
+        logger.setLevel(logging.DEBUG)
+        logger.debug("debug mode enabled")
