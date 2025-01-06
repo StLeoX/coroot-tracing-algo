@@ -14,7 +14,7 @@ from src.task.update_trace_id import update_trace_ids
 @flow(name="SeeFlow")
 def SeeFlow():
     # 获取处理时间
-    util_sec = datetime.now() - timedelta(seconds=monitoring_delay_sec)
+    util_sec = datetime.utcnow() - timedelta(seconds=monitoring_delay_sec)
     since_sec = util_sec - timedelta(seconds=fetch_timeout_sec)
     # 拉取数据到内存
     fetch_f = fetch_spans.submit(util_sec, since_sec)
