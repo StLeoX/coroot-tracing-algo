@@ -1,6 +1,6 @@
 from datetime import timedelta, datetime
 
-from src.config import timestamp_format
+from src.config import timestamp_format, clock_skew
 
 
 class Span:
@@ -24,9 +24,9 @@ class Span:
 
         if type(timestamp_us) == str:
             timestamp_us = datetime.strptime(timestamp_us, timestamp_format)
-        self.start_time = timestamp_us  # microseconds
-        self.duration = duration_us  # microseconds
-        self.end_time = self.start_time + timedelta(microseconds=self.duration)
+        self.start_time = timestamp_us - timedelta(microseconds=clock_skew)  # microseconds
+        self.duration = duration_us  # microseconds, unused
+        self.end_time = self.start_time + timedelta(microseconds=self.duration) + timedelta(microseconds=clock_skew)
         self.caller = caller  # network IP
         self.callee = callee  # network IP
         self.container_id = container_id  # 全局唯一的 container_id，类似于 process_id。
