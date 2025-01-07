@@ -26,7 +26,9 @@ def fetch_spans(util_sec, since_sec):
                 f"SpanAttributes[\'net.peer.name\'] AS PeerIP " \
                 f"FROM {t_trace} " \
                 f"WHERE Timestamp > {since_sec.strftime(timestamp_format)} " \
-                f"AND Timestamp <= {util_sec.strftime(timestamp_format)}"
+                f"AND Timestamp <= {util_sec.strftime(timestamp_format)}" \
+                f"AND {filter_exclude_monitor_spans()} " \
+                f"ORDER BY Timestamp"
     logger.debug(fetch_sql)
 
     spans_df = pandas.read_sql_query(fetch_sql, ch_engine)
@@ -48,3 +50,12 @@ def fetch_spans(util_sec, since_sec):
         logger.info(f"Fetch {len(spans_df)} spans, they are {[s.container_id for s in sid_span_map.values()]}.")
 
     return sid_span_map  # todo 使用更高级的 LRU 结构，取代内置的 map 结构。
+
+
+def filter_exclude_coroot_spans():
+    return "NOT startsWith(ContainerID, '/docker/coroot') " \
+           "AND NOT startsWith(ContainerID, '/k8s/coroot') "
+
+
+def filter_exclude_monitor_spans():
+    return "NOT position(ContainerID, 'monitor') "
