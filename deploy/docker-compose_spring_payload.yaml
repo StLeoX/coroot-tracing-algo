@@ -17,7 +17,7 @@ services:
       - "6379:6379"
 
   foo-svc:
-    image: registry.cn-beijing.aliyuncs.com/obser/foo-svc:0.1.0
+    image: registry.cn-beijing.aliyuncs.com/obser/foo-svc:latest
     environment:
       JAEGER_UDP_SENDER_HOST: jaeger
     ports:
@@ -27,7 +27,7 @@ services:
       - jaeger
 
   bar-svc:
-    image: registry.cn-beijing.aliyuncs.com/obser/bar-svc:0.1.0
+    image: registry.cn-beijing.aliyuncs.com/obser/bar-svc:latest
     environment:
       JAEGER_UDP_SENDER_HOST: jaeger
     links:
@@ -35,7 +35,7 @@ services:
       - jaeger
 
   loo-svc:
-    image: registry.cn-beijing.aliyuncs.com/obser/loo-svc:0.1.0
+    image: registry.cn-beijing.aliyuncs.com/obser/loo-svc:latest
     environment:
       JAEGER_UDP_SENDER_HOST: jaeger
     links:

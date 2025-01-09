@@ -5,7 +5,7 @@ name: coroot
 services:
   coroot:
     restart: always
-    image: registry.cn-beijing.aliyuncs.com/obser/coroot:v1.24.1-fix
+    image: registry.cn-beijing.aliyuncs.com/obser/coroot:v1.24.3
     volumes:
       - /D/tmp/coroot2/coroot_data:/data
     ports:
@@ -21,7 +21,7 @@ services:
 
   node-agent:
     restart: always
-    image: registry.cn-beijing.aliyuncs.com/obser/coroot-node-agent:v1.24.1-fix
+    image: registry.cn-beijing.aliyuncs.com/obser/coroot-node-agent:v1.24.3
     privileged: true
     pid: "host"
     volumes:
@@ -52,7 +52,7 @@ services:
 
   tracing-algo:
     restart: always
-    image: registry.cn-beijing.aliyuncs.com/obser/coroot-tracing-algo:v1.24.1-fix
+    image: registry.cn-beijing.aliyuncs.com/obser/coroot-tracing-algo:v1.24.3
     environment:
       COROOT_CLICKHOUSE_ADDRESS: "clickhouse:8123"
     ports:
