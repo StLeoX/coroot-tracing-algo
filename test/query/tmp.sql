@@ -11,3 +11,7 @@ where otel_traces.Timestamp between '2025-01-10 11:55:00' and '2025-01-10 11:56:
 group by TraceId -- 按 TraceID 聚合
 order by span_count desc
 limit 20;
+
+-- timestampDiff(unit, start, end)
+select fromUnixTimestamp(timestampDiff('microsecond', timestamp('2025-01-10 11:55:33.814'),
+                                       timestamp('2025-01-10 11:55:33.814968619')));
