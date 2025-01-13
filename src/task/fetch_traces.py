@@ -18,9 +18,9 @@ def fetch_spans(util_sec, since_sec):
     """
     logger = get_run_logger()
 
-    fetch_sql = f"SELECT toDateTime64(Timestamp,6) AS TimestampUs, " \
+    fetch_sql = f"SELECT toDateTime64(Timestamp, 6) AS TimestampUs, " \
                 f"SpanId, " \
-                f"Duration, " \
+                f"intDiv(Duration, 1000) AS DurationUs, " \
                 f"ResourceAttributes[\'container.id\'] AS ContainerID, " \
                 f"SpanAttributes[\'net.host.name\'] AS HostIP, " \
                 f"SpanAttributes[\'net.peer.name\'] AS PeerIP " \
@@ -38,7 +38,7 @@ def fetch_spans(util_sec, since_sec):
         sid_span_map[s['SpanId']] = Span('',
                                          s['SpanId'],
                                          s['TimestampUs'],
-                                         s['Duration'],
+                                         s['DurationUs'],
                                          s['HostIP'],
                                          s['PeerIP'],
                                          s['ContainerID'],

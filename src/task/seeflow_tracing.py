@@ -5,7 +5,7 @@ SeeFlow 追踪算法。
 import pandas
 from prefect import get_run_logger, task, states
 
-from src.task.dto.span import Span
+from src.task.dto.span import *
 from src.task.init_variables import *
 
 
@@ -27,14 +27,19 @@ def update_children(time_batch_spans):
 
         # todo 检查 span 之间的 child_candidates 的重叠情况。根据定义是不允许重叠的。当然这里已经用 empty(ParentSpanId) 过滤过。
 
-        for child_span_id in child_candidates:
+        for cc in child_candidates:
             # 先更新缓存
-            if child_span_id in time_batch_spans:
-                time_batch_spans[child_span_id].parent_span_id = parent_span_id
+            if cc.span_id in time_batch_spans:
+                time_batch_spans[cc.span_id].parent_span_id = parent_span_id
             # 后更新DB
             update_sqls.append(f"ALTER TABLE {t_trace} " \
                                f"UPDATE ParentSpanId = \'{parent_span_id}\' " \
-                               f"WHERE SpanId = \'{child_span_id}\';")
+                               f"WHERE SpanId = \'{cc.span_id}\';")
+            # 顺便为 Parent Span 添加两个 Span Attribute
+            update_sqls.append(f"ALTER TABLE {t_trace} " \
+                               f"UPDATE SpanAttributes['server_recv'] = '{cc.get_timestamp()}', "
+                               f"SpanAttributes['server_send'] = '{cc.get_timestamp_plus_duration()}' " \
+                               f"WHERE ParentSpanId = '{parent_span_id}';")
 
     should_count = len(update_sqls)
     if should_count == 0:
@@ -61,12 +66,14 @@ def find_child_candidates(parent: Span):
     parent_start_time = parent.start_time.strftime(timestamp_format)
     parent_end_time = parent.end_time.strftime(timestamp_format)
     find_sql = f"WITH time_range_ss AS (" \
-               f"SELECT TgidRead, TgidWrite " \
+               f"SELECT TgidRead, TgidWrite, Timestamp, Duration " \
                f"FROM {t_l7ss} " \
                f"WHERE Timestamp > {parent_start_time} " \
                f"AND addNanoseconds(Timestamp, Duration) < {parent_end_time}" \
                f") " \
-               f"SELECT DISTINCT SpanId " \
+               f"SELECT DISTINCT SpanId, " \
+               f"toDateTime64(time_range_ss.Timestamp, 6) AS TimestampUs, " \
+               f"intDiv(time_range_ss.Duration, 1000) AS DurationUs " \
                f"FROM time_range_ss, {t_trace} " \
                f"WHERE empty(ParentSpanId) " \
                f"AND SpanAttributes[\'net.host.name\'] = {parent_callee} " \
@@ -80,11 +87,11 @@ def find_child_candidates(parent: Span):
     child_candidates_df = pandas.read_sql_query(find_sql, ch_engine)
     logger.info(f"Found {len(child_candidates_df)} child candidates for span {parent.span_id}.")
 
-    child_candidates_sid_list = []
+    child_candidates = []
     for _, cc in child_candidates_df.iterrows():
-        child_candidates_sid_list.append(cc['SpanId'])
+        child_candidates.append(ChildCandidate(cc['SpanId'], cc['TimestampUs'], cc['DurationUs']))
 
     if len(child_candidates_df) != 0:
-        logger.info(f"They are {child_candidates_sid_list}.")
+        logger.info(f"They are {[s.span_id for s in child_candidates]}.")
 
-    return child_candidates_sid_list
+    return child_candidates

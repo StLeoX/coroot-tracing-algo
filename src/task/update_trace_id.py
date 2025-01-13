@@ -40,6 +40,7 @@ def update_trace_ids(time_batch_spans):
         update_sqls.append(f"ALTER TABLE {t_trace} " \
                            f"UPDATE TraceId = \'{span_id}\' " \
                            f"WHERE SpanId = \'{span_id}\';")
+        should_count += 1
 
     actual_count = 0
     try:
