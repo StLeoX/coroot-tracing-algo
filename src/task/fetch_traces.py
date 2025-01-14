@@ -27,7 +27,7 @@ def fetch_spans(util_sec, since_sec):
                 f"FROM {t_trace} " \
                 f"WHERE Timestamp > {since_sec.strftime(timestamp_format)} " \
                 f"AND Timestamp <= {util_sec.strftime(timestamp_format)}" \
-                f"AND {filter_exclude_monitor_spans()} " \
+                f"{SpanFilter.include()} " \
                 f"ORDER BY Timestamp"
     logger.debug(fetch_sql)
 
@@ -52,10 +52,26 @@ def fetch_spans(util_sec, since_sec):
     return sid_span_map  # todo 使用更高级的 LRU 结构，取代内置的 map 结构。
 
 
-def filter_exclude_coroot_spans():
-    return "NOT startsWith(ContainerID, '/docker/coroot') " \
-           "AND NOT startsWith(ContainerID, '/k8s/coroot') "
+class SpanFilter:
+    # 白名单
+    @staticmethod
+    def include():
+        return "AND position(ContainerID, 'demo') > 0 "
 
+    # 黑名单
+    @staticmethod
+    def exclude():
+        return SpanFilter.exclude_coroot_spans() + SpanFilter.exclude_monitor_spans()
 
-def filter_exclude_monitor_spans():
-    return "NOT position(ContainerID, 'monitor') "
+    @staticmethod
+    def exclude_coroot_spans():
+        return "AND NOT startsWith(ContainerID, '/docker/coroot') " \
+               "AND NOT startsWith(ContainerID, '/k8s/coroot') "
+
+    @staticmethod
+    def exclude_monitor_spans():
+        return "AND NOT position(ContainerID, 'monitor') "
+
+    @staticmethod
+    def exclude_kubernetes_spans():
+        return "AND NOT position(ContainerID, 'kubelet') "
