@@ -1,6 +1,6 @@
 FROM python:3.10.6-slim-bullseye AS basic
 
-WORKDIR /coroot
+WORKDIR /algo
 
 RUN python -m venv venv
 
@@ -10,7 +10,7 @@ RUN ./venv/bin/pip install -i "https://mirrors.aliyun.com/pypi/simple/" --no-cac
 
 FROM basic
 
-WORKDIR /coroot
+WORKDIR /algo
 
 COPY . .
 
