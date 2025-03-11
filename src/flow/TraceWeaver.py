@@ -1,7 +1,3 @@
-"""
-整合相关 task。
-"""
-
 from prefect import Flow
 
 from src.task.fetch_traces import fetch_spans

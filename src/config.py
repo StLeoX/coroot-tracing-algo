@@ -36,5 +36,6 @@ if delay:
 
 # 其他配置
 timestamp_format = '\'%Y-%m-%d %H:%M:%S.%f\''  # 通常是微妙精度。
+timestamp_format_no_quote = '%Y-%m-%d %H:%M:%S.%f'  # 通常是微妙精度。
 
 DEBUG_MODE = True
