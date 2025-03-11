@@ -13,6 +13,9 @@ ch_engine = create_engine(ch_uri, pool_size=50, pool_recycle=3600, pool_timeout=
 t_trace = f'{ch_database}.otel_traces'
 t_l7ss = f'{ch_database}.l7_events_ss'
 
+t_trace_test = f'test.otel_traces'
+t_l7ss_test = f'test.l7_events_ss'
+
 # 初始化
 all_traces = {}
 all_cgs = {}
