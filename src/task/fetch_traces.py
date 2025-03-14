@@ -20,6 +20,7 @@ def fetch_spans(util_sec, since_sec):
 
     fetch_sql = f"SELECT toDateTime64(Timestamp,6) AS TimestampUs, " \
                 f"SpanId, " \
+                f"ParentSpanId, " \
                 f"Duration, " \
                 f"ResourceAttributes[\'container.id\'] AS ContainerID, " \
                 f"SpanAttributes[\'net.host.name\'] AS HostIP, " \
@@ -35,14 +36,18 @@ def fetch_spans(util_sec, since_sec):
 
     sid_span_map = {}
     for _, s in spans_df.iterrows():
-        sid_span_map[s['SpanId']] = Span('',
-                                         s['SpanId'],
-                                         s['TimestampUs'],
-                                         s['Duration'],
-                                         s['HostIP'],
-                                         s['PeerIP'],
-                                         s['ContainerID'],
-                                         )
+        span = Span('',
+                    s['SpanId'],
+                    s['TimestampUs'],
+                    s['Duration'],
+                    s['HostIP'],
+                    s['PeerIP'],
+                    s['ContainerID'],
+                    )
+        if s['ParentSpanId']:
+            span.SetGTPSId(s['ParentSpanId'])
+        sid_span_map[s['SpanId']] = span
+
     if len(spans_df) == 0:
         return states.Failed(message="Empty time batch")
     else:

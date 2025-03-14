@@ -3,7 +3,6 @@ TraceWeaver 公共函数。
 """
 
 import copy
-from datetime import timedelta
 
 import networkx as nx
 
@@ -66,7 +65,7 @@ def FindOrder(all_spans, all_processes, in_span_partitions, out_span_partitions,
         for i, x in enumerate(outgoing_spans):
             for j, y in enumerate(outgoing_spans):
                 if i != j:
-                    if time_add(x[0], x[1]) > y[0]:
+                    if x[0] + x[1] > y[0]:
                         if G.has_edge(i, j):
                             G.remove_edge(i, j)
                         if G1.has_edge(x[3], y[3]):
@@ -76,10 +75,10 @@ def FindOrder(all_spans, all_processes, in_span_partitions, out_span_partitions,
                         if x[0] > y[0]:
                             if G2.has_edge(x[3] + "-start", y[3] + "-start"):
                                 G2.remove_edge(x[3] + "-start", y[3] + "-start")
-                    if time_add(x[0], x[1]) > time_add(y[0], y[1]):
+                    if x[0] + x[1] > y[0] + y[1]:
                         if G2.has_edge(x[3] + "-end", y[3] + "-end"):
                             G2.remove_edge(x[3] + "-end", y[3] + "-end")
-                    if time_add(y[0], y[1]) > x[0]:
+                    if y[0] + y[1] > x[0]:
                         if G.has_edge(j, i):
                             G.remove_edge(j, i)
                         if G1.has_edge(y[3], x[3]):
@@ -89,7 +88,7 @@ def FindOrder(all_spans, all_processes, in_span_partitions, out_span_partitions,
                         if y[0] > x[0]:
                             if G2.has_edge(y[3] + "-start", x[3] + "-start"):
                                 G2.remove_edge(y[3] + "-start", x[3] + "-start")
-                    if time_add(y[0], y[1]) > time_add(x[0], x[1]):
+                    if y[0] + y[1] > x[0] + x[1]:
                         if G2.has_edge(y[3] + "-end", x[3] + "-end"):
                             G2.remove_edge(y[3] + "-end", x[3] + "-end")
 
@@ -100,10 +99,6 @@ def FindOrder(all_spans, all_processes, in_span_partitions, out_span_partitions,
             service_order[i][j] = outgoing_eps[sorted_grouped_order[i][j]]
 
     return G1
-
-
-def time_add(timestamp, duration):
-    return timestamp + timedelta(milliseconds=duration)
 
 
 def topological_sort_grouped(G):
@@ -276,3 +271,74 @@ def TopKAccuracyEndToEnd(
                     break
     correct = sum(trace_acc[tid] for tid in trace_acc)
     return trace_acc, float(correct) / len(trace_acc)
+
+
+# 将全量 span 数据按照 service 进行聚合：in_spans 按 callee 聚合，out_spans 按 caller 聚合。
+def AggregateSpans(spans, service_names):
+    in_spans_by_process = {}
+    out_spans_by_process = {}
+    for span in spans:
+        if span.caller == '' or span.callee == '':
+            print(f"span with unknown service: {span.span_id}")
+            continue
+
+        # fixme 现在 caller 是 ip 表示的。
+        # if span.caller not in service_names or span.callee not in service_names:
+        #     continue
+
+        if span.callee not in in_spans_by_process:
+            in_spans_by_process[span.callee] = []
+        in_spans_by_process[span.callee].append(span)
+
+        if span.caller not in out_spans_by_process:
+            out_spans_by_process[span.caller] = []
+        out_spans_by_process[span.caller].append(span)
+
+    return in_spans_by_process, out_spans_by_process
+
+
+# 锁定某个 PID 进行计算，“处理一个进程”
+def ComputeSingleProcess(process, in_spans_by_process, out_spans_by_process, all_processes, all_spans, sid_span_map,
+                         predictor):
+    # fixme 那么边界服务如何进行计算？边界服务：像 redis 这样没有下游服务的服务；像 nginx 这样没有上游服务的服务。
+    if process not in in_spans_by_process or process not in out_spans_by_process:
+        return None
+
+    in_spans = copy.deepcopy(in_spans_by_process[process])
+    out_spans = copy.deepcopy(out_spans_by_process[process])
+
+    # 计算分区（partition）的模板
+    def PartitionSpansByEndPoint(spans, endpoint_lambda):
+        partitions = {}
+        for span in spans:
+            ep = endpoint_lambda(span)
+            if ep not in partitions:
+                partitions[ep] = []
+            partitions[ep].append(span)
+        for ep, part in partitions.items():
+            part.sort(key=lambda x: (x.start_time, x.end_time))
+        return partitions
+
+    # 针对 in_spans，拿的是上游服务的ep。
+    in_span_partitions = PartitionSpansByEndPoint(
+        in_spans, lambda x: x.GetParentProcess(all_processes, all_spans)
+    )
+    # 针对 out_spans，拿的是下游服务的ep。
+    out_span_partitions = PartitionSpansByEndPoint(
+        out_spans, lambda x: x.GetChildProcess(all_processes, all_spans)
+    )
+    # 当前服务的上游服务不止一个（顶点的入度大于一）
+    if len(in_span_partitions.keys()) > 1:
+        print("Error DAG Struct")
+
+    true_assignments = GetGroundTruth(in_span_partitions, out_span_partitions)
+
+    call_graph = FindOrder(all_spans, all_processes, in_span_partitions, out_span_partitions, sid_span_map)
+
+    instrumented_hops = []
+    true_assignments = None
+
+    result = predictor.FindAssignments(process, in_span_partitions, out_span_partitions, True, instrumented_hops,
+                                       true_assignments)
+    result.acc = AccuracyForService(result.pred_assignments, true_assignments, in_span_partitions)
+    return result

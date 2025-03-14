@@ -15,10 +15,20 @@ class Span:
         self.span_id: str = span_id
         self.trace_id: str = trace_id
         self.parent_span_id: str = ''
+        self.gt_parent_span_id: str = ''  # the GroundTruth parent span_id
 
-        self.start_time = start_timestamp  # 单位 milliseconds，pandas 只支持微秒（6位）
-        self.duration = duration // 1000  # 单位 milliseconds
-        self.end_time = start_timestamp + timedelta(milliseconds=self.duration)
+        '''
+        把 start_time 统一转成浮点数：
+        dt = datetime(2025, 3, 14, 10, 30, 0, 123456)  # 包含微秒部分
+        timestamp = dt.timestamp() # 转换为 Unix 时间戳，类型是 float
+        print("原始时间戳:", timestamp, type(timestamp)) # 原始时间戳: 1741919400.123456 <class 'float'>
+        '''
+        # self.start_time = start_timestamp  # 单位微秒（microseconds），pandas 只支持微秒（6位）
+        self.start_time = start_timestamp.timestamp()  # 单位秒，微秒保存在小数点后六位，类型 float
+        self.duration = (duration // 1000) / 1e6  # 单位秒，微秒保存在小数点后六位
+        end_timestamp = start_timestamp + timedelta(milliseconds=duration // 1000)
+        self.end_time = end_timestamp.timestamp()
+
         self.caller = caller  # using network IP
         self.callee = callee  # using network IP
         self.container_id = container_id  # 全局唯一的 container_id，类似于 process_id。
@@ -28,7 +38,11 @@ class Span:
         self.references = ()  # 暂时无用，类似于节点的边？
 
     def __str__(self):
-        return f"Span(trace_id={self.trace_id}, span_id={self.span_id}, start_time={self.start_time}, duration={self.duration}, caller={self.caller}, callee={self.callee}, container_id={self.container_id})"
+        return f"Span(trace_id={self.trace_id}, span_id={self.span_id}, parent_span_id={self.gt_parent_span_id}, " \
+               f"start_time={self.start_time}, duration={self.duration}, caller={self.caller}, callee={self.callee})"
+
+    def SetGTPSId(self, gt):
+        self.gt_parent_span_id = gt
 
     def GetId(self):
         return (self.trace_id, self.span_id)

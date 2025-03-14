@@ -1,6 +1,34 @@
+'''
+一些操作 Clickhouse 数据库的帮助函数。
+'''
+
 import pandas
 
 from src.task.init_variables import *
+
+
+def update_parent_mock(child_span, parent_span_id):
+    print(f"span_id triple (child - parent - gt_parent): {child_span.span_id} - {parent_span_id} - {child_span.gt_parent_span_id}")
+
+
+def update_parent(sid_span_map, child_span_id, parent_span_id):
+    # 先更新缓存
+    if child_span_id in sid_span_map:
+        sid_span_map[child_span_id].parent_span_id = parent_span_id
+    # 后更新DB
+    update_sql = f"ALTER TABLE {t_trace} " \
+                 f"UPDATE ParentSpanId = \'{parent_span_id}\' " \
+                 f"WHERE SpanId = \'{child_span_id}\';"
+    try:
+        pandas.read_sql_query(update_sql, ch_engine)
+    except:
+        print(f"Updating mapping failed: ({child_span_id}, {parent_span_id})")
+
+
+'''
+一些操作 Clickhouse 数据库的帮助函数。
+同于测试环境
+'''
 
 
 def setup_test_database():
