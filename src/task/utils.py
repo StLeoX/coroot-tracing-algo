@@ -8,7 +8,8 @@ from src.task.init_variables import *
 
 
 def update_parent_mock(child_span, parent_span_id):
-    print(f"span_id triple (child - parent - gt_parent): {child_span.span_id} - {parent_span_id} - {child_span.gt_parent_span_id}")
+    print(f"span_id triple (child - parent - gt_parent): "
+          f"{child_span.span_id} - {parent_span_id} - {child_span.gt_parent_span_id}")
 
 
 def update_parent(sid_span_map, child_span_id, parent_span_id):

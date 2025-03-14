@@ -38,8 +38,9 @@ def update_children(time_batch_spans, service_names):
         print(f"Started to compute process {process}")
 
         # 展开 assignment 结构
+        # all_assignments[ep][in_spans[ind].GetId()] = ("NA", "NA")，所以 in_span 对应 parent span，out_span 对应 child span。
         for ep, mappings in result.pred_assignments.items():
-            for child_sid, parent_sid in mappings.items():
+            for parent_sid, child_sid in mappings.items():
                 # update_parent(child_sid[1], parent_sid[1])
                 span = time_batch_spans[child_sid[1]]
                 utils.update_parent_mock(span, parent_sid[1])
