@@ -64,7 +64,7 @@ class TraceWeaverV1(object):
 
     # 通过 trace_id 先验知识，判断服务是否串行（sequential）。
     # 只要时间区间存在一个违背，那就判别为并行（parallel）。
-    # verify that all outgoing request dependencies are serial
+    # 既然是通过 trace_id 先验知识判断，那也可以直接设置为 parallel 模式。
     def VerifySerialDependency(self, in_spans, out_eps, out_span_partitions):
         def FindSpanTraceId(trace_id, spans):
             for s in spans:
@@ -80,9 +80,9 @@ class TraceWeaverV1(object):
                 assert out_span.start_time > prev_time
                 prev_time = out_span.ent_time
 
-    def GetOutEpsInOrder(self, out_span_partitions, invocation_graph=None):
-        if invocation_graph:
-            return list(nx.topological_sort(invocation_graph))
+    def GetOutEpsInOrder(self, out_span_partitions, call_graph=None):
+        if call_graph:
+            return list(nx.topological_sort(call_graph))
         eps = []
         for ep, spans in out_span_partitions.items():
             assert len(spans) > 0
@@ -171,14 +171,6 @@ class TraceWeaverV1(object):
             t2 = sorted([s.end_time for s in in_span_partitions[ep2]])
             ComputeDistParams(ep1, ep2, t1, t2)
 
-    # 获取指数函数形式的概率密度函数（PDF），未使用
-    # def GetExponentialPDF(self, t, mean, std):
-    #     if mean < 1.0e-10 or std < 1.0e-10:
-    #         return 1
-    #     scale = mean
-    #     p = scipy.stats.expon.logpdf(t, scale=scale)
-    #     return p
-
     # 计算两个请求之间的概率（weight/cost）
     # ep1:ep1: 上下游端点
     # t1:t2: 相应的时间戳
@@ -196,6 +188,7 @@ class TraceWeaverV1(object):
 
         else:
             # 泊松分布估计
+            # 注意，通过覆盖率测试，知道现在走的是这个分布。
             mean, std = dist_value
             if std < 1.0e-12:
                 std = 0.001
@@ -207,61 +200,6 @@ class TraceWeaverV1(object):
             else:
                 p = scipy.stats.expon.logpdf(t2 - t1, scale=mean)
             return p
-            """
-            # CDF
-            x = scipy.stats.norm.cdf(t2 - t1, loc=mean, scale=std)
-            cp = 2 * min(x, 1-x)
-            if cp==0:
-                return -math.inf
-            else:
-                return math.log(cp)
-            """
-
-    def AllSkip(self, assignment):
-        for i in assignment[1:]:
-            if i.trace_id != "None":
-                return False
-        return True
-
-    def AllSkip2(self, assignment):
-        for i in assignment[1:]:
-            if i[1].trace_id != "None":
-                return False
-        return True
-
-    def ScoreAssignmentWithSkip(self, assignment, normalized=False):
-        cost = 0
-        num_mappings = 0
-
-        if self.AllSkip(assignment):
-            return 0
-
-        for i in range(len(assignment) + 1):
-
-            if i == len(assignment):
-                curr_ep = assignment[0].GetParentProcess(self.all_processes, self.all_spans)
-                curr_time = assignment[0].end_time
-                cost += self.GetEpPairCost(prev_ep, curr_ep, prev_time, curr_time, normalized)
-            else:
-                if assignment[i].trace_id != "None":
-                    num_mappings += 1
-                    if i != 0:
-                        curr_ep = assignment[i].GetChildProcess(self.all_processes, self.all_spans)
-                        curr_time = assignment[i].start_time
-                        cost += self.GetEpPairCost(prev_ep, curr_ep, prev_time, curr_time, normalized)
-
-                    prev_ep = (
-                        assignment[i].GetParentProcess(self.all_processes, self.all_spans)
-                        if i == 0
-                        else assignment[i].GetChildProcess(self.all_processes, self.all_spans)
-                    )
-                    prev_time = (
-                        assignment[i].start_time
-                        if i == 0
-                        else assignment[i].end_time
-                    )
-
-        return cost / (num_mappings)
 
     # sequential 代表了 API 之间的顺序关系，也就是相互依赖的。
     # 具体来说，A在接收到请求后，首先调用B，等待B的响应，然后再调用C，这种处理方式体现了代码执行中的顺序性。
@@ -317,135 +255,7 @@ class TraceWeaverV1(object):
             return cost / len(assignment)
         return cost
 
-    # 供 v3 使用
-    def AlsoNonPrimaryAncestor(self, before_ep, current_ep, invocation_graph):
-        all_paths = list(nx.all_simple_paths(invocation_graph, source=before_ep, target=current_ep, cutoff=2))
-        if not all_paths:
-            assert False
-        else:
-            for i, path in enumerate(all_paths):
-                path_length = len(path) - 1
-                if path_length > 1:
-                    return True
-        return False
-
-    # def ScoreAssignmentAsPerInvocationGraph2(self, assignment, invocation_graph, out_eps, sub_scores, normalized = False):
-    #     return 0, sub_scores
-    #
-
-    # 针对 CG 变化的情况，指定 CG 然后计算 mapping 的 score
-    # 供 v3 使用
-    def ScoreAssignmentAsPerInvocationGraph(self, assignment, invocation_graph, out_eps, sub_scores, normalized=False):
-
-        if self.AllSkip2(assignment):
-            return 0
-
-        def FindValidAncestor(ep):
-
-            before_eps = invocation_graph.in_edges(ep)
-            if len(before_eps) == 0:
-                return None
-
-            valid_spans = []
-            invalid_spans = []
-            for (before_ep, self_ep) in before_eps:
-
-                ep_index = out_eps.index(before_ep)
-                b_ep = assignment[ep_index + 1][0]
-                b_span = assignment[ep_index + 1][1]
-                assert b_ep == before_ep
-
-                if b_span.trace_id != "None":
-                    valid_spans.append((b_ep, b_span))
-                else:
-                    invalid_spans.append((b_ep, b_span))
-
-            if len(valid_spans) > 0:
-                return valid_spans
-            else:
-                next_layer_spans = []
-                for (ep, span) in invalid_spans:
-                    x = FindValidAncestor(ep)
-                    if x != None:
-                        next_layer_spans.append(x)
-                return next_layer_spans
-
-        def AlsoNonPrimaryAncestor(before_ep, current_ep):
-            all_paths = list(nx.all_simple_paths(invocation_graph, source=before_ep, target=current_ep, cutoff=2))
-            if not all_paths:
-                assert False
-            else:
-                for i, path in enumerate(all_paths):
-                    path_length = len(path) - 1
-                    if path_length > 1:
-                        return True
-            return False
-
-        cost = 0
-        num_mappings = 0
-        first_ep, first_span = assignment[0]
-
-        assignment_without_skips = []
-        for a in assignment:
-            if a[1].trace_id != "None":
-                assignment_without_skips.append(a)
-
-        last_ep, last_span = max(assignment_without_skips[1:], key=lambda x: x[1].end_time)
-
-        for (current_ep, current_span) in assignment[1:]:
-            before_eps = invocation_graph.in_edges(current_ep)
-
-            if current_span.trace_id == "None":
-                continue
-
-            for (before_ep, self_ep) in before_eps:
-
-                ep_index = out_eps.index(before_ep)
-                b_ep = assignment[ep_index + 1][0]
-                b_span = assignment[ep_index + 1][1]
-                assert b_ep == before_ep
-
-                if not AlsoNonPrimaryAncestor(before_ep, current_ep):
-
-                    if b_span.trace_id == "None":
-                        valid_spans = FindValidAncestor(b_ep)
-                        if valid_spans == None:
-                            sub_cost = self.GetEpPairCost(first_ep, current_ep, first_span.start_time,
-                                                          current_span.start_time, normalized)
-                            cost += sub_cost
-                            num_mappings += 1
-                        else:
-                            latest = max(valid_spans, key=lambda x: x[1].end_time)
-                            sub_cost = self.GetEpPairCost(latest[0], current_ep, latest[1].start_time,
-                                                          current_span.start_time, normalized)
-                            cost += sub_cost
-                            num_mappings += 1
-
-                        continue
-
-                    sub_cost = self.GetEpPairCost(before_ep, current_ep, b_span.end_time, current_span.start_time,
-                                                  normalized)
-                    cost += sub_cost
-                    num_mappings += 1
-
-            if len(invocation_graph.in_edges(current_ep)) == 0:
-                sub_cost = self.GetEpPairCost(first_ep, current_ep, first_span.start_time, current_span.start_time,
-                                              normalized)
-                cost += sub_cost
-                num_mappings += 1
-
-            if current_ep == last_ep:
-                sub_cost = self.GetEpPairCost(current_ep, first_ep, current_span.end_time, first_span.end_time,
-                                              normalized)
-                cost += sub_cost
-                num_mappings += 1
-
-        if normalized:
-            return cost / num_mappings, sub_scores
-        return cost, sub_scores
-
-    # 启发式搜索过程
-    # 在 v1 中很简单：DFS 遍历全体 candidate，显然存在状态爆炸问题。
+    # 搜索过程在 v1 中很简单：DFS 遍历全体 candidate，显然存在状态爆炸问题。
     # 或者 DFS 到预设的 best_score，显然这是个局部最优的结果，并且 best_score 在不同负载中需要重设。
     def FindMinCostAssignment(self, in_span, out_eps, out_span_partitions):
         global best_assignment
@@ -536,7 +346,7 @@ class TraceWeaverV1(object):
             if ep not in all_assignments:
                 all_assignments[ep] = {}
             out_span = assignment.get(ep, None)
-            if skips:
+            if skips:  # 供 V3 使用
                 if out_span is None:
                     out_span_id = ("NA", "NA")
                 else:
@@ -859,7 +669,7 @@ class TraceWeaverV2(TraceWeaverV1):
         best_mis = None
         best_score = -math.inf
         # 固定的迭代次数（求全局最优解的过程是 NP-hard 的）
-        for i in range(20000):
+        for i in range(config.tw_MIS_iterations):
             mis = nx.maximal_independent_set(G)
             # score 聚合的方式是 sum，也就是对数和（也就是积）
             score = sum([G.nodes[n]['weight'] for n in mis])
@@ -867,7 +677,3 @@ class TraceWeaverV2(TraceWeaverV1):
                 best_mis = mis
                 best_score = score
         return best_mis
-
-    # def GetWeightedMIS(self, G, weight):
-    #     vcover = approximation.min_weighted_vertex_cover(G, weight=weight)
-    #     return set(G.nodes()).difference(set(vcover))

@@ -118,25 +118,6 @@ def topological_sort_grouped(G):
     return grouped_list
 
 
-def SortPartitionsByTraceId(span_partitions):
-    for ep, part in span_partitions.items():
-        part.sort(key=lambda x: x.trace_id)
-
-
-def SortPartitionsByTime(span_partitions):
-    for ep, part in span_partitions.items():
-        part.sort(key=lambda x: (x.start_time, x.end_time))
-
-
-def GetOutEpsInOrder(out_span_partitions):
-    eps = []
-    for ep, spans in out_span_partitions.items():
-        assert len(spans) > 0
-        eps.append((ep, spans[0].start_time))
-    eps.sort(key=lambda x: x[1])
-    return [x[0] for x in eps]
-
-
 # 利用 trace_id 确定最准确的 mapping。
 # 如果没有 trace_id，返回空。
 def GetGroundTruth(in_span_partitions, out_span_partitions):
@@ -152,6 +133,7 @@ def GetGroundTruth(in_span_partitions, out_span_partitions):
     return true_assignments
 
 
+# todo ACC 计算
 def AccuracyForSpan(pred_assignments, true_assignments, in_span_id):
     correct = True
     for ep in true_assignments.keys():
@@ -167,6 +149,7 @@ def AccuracyForSpan(pred_assignments, true_assignments, in_span_id):
     return int(correct)
 
 
+# todo ACC 计算
 def TopKAccuracyForSpan(pred_topk_assignments, true_assignments, in_span_id):
     ep0 = list(true_assignments.keys())[0]
     correct = False
@@ -182,6 +165,7 @@ def TopKAccuracyForSpan(pred_topk_assignments, true_assignments, in_span_id):
     return int(correct)
 
 
+# todo ACC 计算
 def AccuracyForService(pred_assignments, true_assignments, in_span_partitions):
     if true_assignments is None:
         return -1
@@ -204,6 +188,7 @@ def AccuracyForService(pred_assignments, true_assignments, in_span_partitions):
     return float(cnt) / len(in_spans)
 
 
+# todo ACC 计算
 def TopKAccuracyForService(pred_topk_assignments, true_assignments, in_span_partitions):
     assert len(in_span_partitions) == 1
     _, in_spans = list(in_span_partitions.items())[0]
@@ -223,6 +208,7 @@ def TopKAccuracyForService(pred_topk_assignments, true_assignments, in_span_part
     return float(cnt) / len(in_spans)
 
 
+# todo ACC 计算
 def AccuracyEndToEnd(
         pred_assignments_by_process, true_assignments_by_process, in_spans_by_process
 ):
@@ -244,6 +230,7 @@ def AccuracyEndToEnd(
     return trace_acc, float(correct) / len(trace_acc)
 
 
+# todo ACC 计算
 def TopKAccuracyEndToEnd(
         pred_topk_assignments_by_process, true_assignments_by_process, in_spans_by_process
 ):

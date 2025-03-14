@@ -31,7 +31,8 @@ if interval:
 ## TraceWeaver 算法参数
 tw_batch_size = 10  # 触发一次计算
 tw_batch_size_mis = 10  # obatch 规模
-tw_top_size = 3 # TopK 规模
+tw_top_size = 3  # TopK 规模
+tw_MIS_iterations = 2000  # MIS 有限迭代次数
 
 ## 处理时间落后于墙上时间的延迟，为了适应 pipeline 中的时延。
 monitoring_delay_sec = 5
