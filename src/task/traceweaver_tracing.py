@@ -18,11 +18,13 @@ import src.task.utils as utils
 
 
 @task(log_prints=True)
-def update_children(time_batch_spans, service_names):
+def update_children(time_batch_spans):
     if len(time_batch_spans) == 0:
         return states.Failed(message="Empty time batch")
 
     spans = time_batch_spans.values()
+
+    service_names = tw.GetServiceNames(spans)
 
     twV2 = TraceWeaverV2(spans, service_names)
 
@@ -35,17 +37,18 @@ def update_children(time_batch_spans, service_names):
         if result is None:
             print(f"Failed to compute process {process}")
             continue
-        print(f"Started to compute process {process}")
+        print(f"Computed process {process}", f", `not_best_count` is {result.not_best_count}")
 
         # 展开 assignment 结构
         # all_assignments[ep][in_spans[ind].GetId()] = ("NA", "NA")，所以 in_span 对应 parent span，out_span 对应 child span。
         for ep, mappings in result.pred_assignments.items():
             for parent_sid, child_sid in mappings.items():
-                # update_parent(child_sid[1], parent_sid[1])
-                span = time_batch_spans[child_sid[1]]
-                utils.update_parent_mock(span, parent_sid[1])
+                # todo 因为 ComputeDistParams 截断造成的 NA
+                if child_sid[1] == 'NA':
+                    continue
+                utils.update_parent(time_batch_spans, child_sid[1], parent_sid[1])  # 下标 0 代表 trace_id。
 
-    return states.Completed(message="`update_children` finished")
+    return states.Completed(message="Finished `update_children`.")
 
 
 # 基本配置
@@ -535,8 +538,13 @@ class TraceWeaverV2(TraceWeaverV1):
 
     def FindAssignments(self, process, in_span_partitions, out_span_partitions, parallel, instrumented_hops,
                         true_assignments):
-        # 判断服务拓补图是否符合 DAG 结构。
-        assert len(in_span_partitions) == 1
+        # 判断服务依赖关系是否允许计算。
+        if len(in_span_partitions) == 0:
+            print(f"{process} has no upstream.")
+            return None
+        if len(in_span_partitions) > 1:
+            print(f"{process} has those more than one upstreams, they are {in_span_partitions.keys()}.")
+            return None
         self.process = process
         self.parallel = parallel
         self.instrumented_hops = instrumented_hops

@@ -4,7 +4,6 @@ from prefect import flow
 
 from src.config import *
 from src.task.fcfs_tracing import update_children
-from src.task.fetch_services import fetch_services
 from src.task.fetch_traces import fetch_spans
 from src.task.update_trace_id import update_trace_ids
 
@@ -15,10 +14,9 @@ def FCFS():
     util_sec = datetime.utcnow() - timedelta(seconds=monitoring_delay_sec)
     since_sec = util_sec - timedelta(seconds=fetch_timeout_sec)
     # 拉取数据到内存
-    fetch_1 = fetch_services.submit()
-    fetch_2 = fetch_spans.submit(util_sec, since_sec)
+    fetch_1 = fetch_spans.submit(util_sec, since_sec)
     # 更新 parent 属性
-    update_1 = update_children.submit(fetch_2.result(), fetch_1.result(), waitor=[fetch_1, fetch_2])
+    update_1 = update_children.submit(time_batch_spans=fetch_1.result(), wait_for=[fetch_1])
     # 更新 trace_id 属性
-    update_2 = update_trace_ids.submit(time_batch_spans=fetch_2.result(), waitor=[update_1])
+    update_2 = update_trace_ids.submit(time_batch_spans=fetch_1.result(), wait_for=[update_1])
     update_2.wait()

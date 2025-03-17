@@ -260,13 +260,22 @@ def TopKAccuracyEndToEnd(
     return trace_acc, float(correct) / len(trace_acc)
 
 
-# 将全量 span 数据按照 service 进行聚合：in_spans 按 callee 聚合，out_spans 按 caller 聚合。
+# 直接在 span 数据上聚合出服务列表（可能非全局）。
+def GetServiceNames(spans):
+    service_names = set()
+    for span in spans:
+        if span.caller != '':
+            service_names.add(span.caller)
+    return list(service_names)
+
+
+# 将 span 数据按照 service 进行聚合：in_spans 按 callee 聚合，out_spans 按 caller 聚合。
 def AggregateSpans(spans, service_names):
     in_spans_by_process = {}
     out_spans_by_process = {}
     for span in spans:
         if span.caller == '' or span.callee == '':
-            print(f"span with unknown service: {span.span_id}")
+            print(f"Span with unknown service: {span.span_id}")
             continue
 
         # fixme 现在 caller 是 ip 表示的。
@@ -289,6 +298,7 @@ def ComputeSingleProcess(process, in_spans_by_process, out_spans_by_process, all
                          predictor):
     # fixme 那么边界服务如何进行计算？边界服务：像 redis 这样没有下游服务的服务；像 nginx 这样没有上游服务的服务。
     if process not in in_spans_by_process or process not in out_spans_by_process:
+        print(f"{process} is an edge service.")
         return None
 
     in_spans = copy.deepcopy(in_spans_by_process[process])
@@ -327,5 +337,8 @@ def ComputeSingleProcess(process, in_spans_by_process, out_spans_by_process, all
 
     result = predictor.FindAssignments(process, in_span_partitions, out_span_partitions, True, instrumented_hops,
                                        true_assignments)
+    if result is None:
+        return None
+
     result.acc = AccuracyForService(result.pred_assignments, true_assignments, in_span_partitions)
     return result

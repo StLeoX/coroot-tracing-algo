@@ -20,4 +20,4 @@ if __name__ == '__main__':
     from src.task.fcfs_tracing import update_children
 
     with disable_run_logger():
-        update_children.fn(sid_span_map, service_names)
+        update_children.fn(sid_span_map)

@@ -50,7 +50,7 @@ def update_trace_ids(time_batch_spans):
         if should_count != actual_count:
             return states.Failed(message=f"Updated {actual_count} records, but expected {should_count}.")
         else:
-            return states.Completed(message=f"Updated {actual_count} records.")
+            return states.Completed(message=f"Finished `update_trace_ids`.")
 
     # todo 更具弹性的缓存！
     # todo history time-batch 中的 span 如何找到并且更新 trace_id？

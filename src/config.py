@@ -23,7 +23,7 @@ if not ch_database:
 
 # tracing-algo 算法参数
 ## 批处理的时间窗口，同时要求准确性和实时性。
-fetch_timeout_sec = 5
+fetch_timeout_sec = 15
 interval = os.getenv('COROOT_TRACING_INTERVAL')
 if interval:
     fetch_timeout_sec = int(interval)
@@ -35,7 +35,7 @@ tw_top_size = 3  # TopK 规模
 tw_MIS_iterations = 2000  # MIS 有限迭代次数
 
 ## 处理时间落后于墙上时间的延迟，为了适应 pipeline 中的时延。
-monitoring_delay_sec = 5
+monitoring_delay_sec = 1
 delay = os.getenv('COROOT_TRACING_DELAY')
 if delay:
     monitoring_delay_sec = int(delay)

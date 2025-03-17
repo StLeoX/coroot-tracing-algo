@@ -5,7 +5,7 @@ import src.task.utils as utils
 
 
 @task(log_prints=True)
-def update_children(time_batch_spans, service_names):
+def update_children(time_batch_spans):
     """
     :param time_batch_spans: 是 sid_span_map。
     :param service_names: container id 列表。
@@ -15,6 +15,8 @@ def update_children(time_batch_spans, service_names):
         return states.Failed(message="Empty time batch")
 
     spans = time_batch_spans.values()
+
+    service_names = tw.GetServiceNames(spans)
 
     fcfs = FCFS(spans, service_names)
     in_spans_by_process, out_spans_by_process = tw.AggregateSpans(spans, service_names)
@@ -26,7 +28,7 @@ def update_children(time_batch_spans, service_names):
         if result is None:
             print(f"Failed to compute process {process}")
             continue
-        print(f"Started to compute process {process}")
+        print(f"Computed process {process}")
 
         # 展开 assignment 结构
         for ep, mappings in result.pred_assignments.items():

@@ -7,23 +7,23 @@ import pandas
 from src.task.init_variables import *
 
 
-def update_parent_mock(child_span, parent_span_id):
+def update_parent_mock(sid_span_map, child_span_id, parent_span_id):
     print(f"span_id triple (child - parent - gt_parent): "
-          f"{child_span.span_id} - {parent_span_id} - {child_span.gt_parent_span_id}")
+          f"{child_span_id} - {parent_span_id} - {sid_span_map[child_span_id]}")
 
 
 def update_parent(sid_span_map, child_span_id, parent_span_id):
-    # 先更新缓存
+    # 先更新 map
     if child_span_id in sid_span_map:
         sid_span_map[child_span_id].parent_span_id = parent_span_id
-    # 后更新DB
+    # 后更新 DB
     update_sql = f"ALTER TABLE {t_trace} " \
                  f"UPDATE ParentSpanId = \'{parent_span_id}\' " \
                  f"WHERE SpanId = \'{child_span_id}\';"
     try:
         pandas.read_sql_query(update_sql, ch_engine)
     except:
-        print(f"Updating mapping failed: ({child_span_id}, {parent_span_id})")
+        print(f"Failed to update mapping: ({child_span_id}, {parent_span_id})")
 
 
 '''
