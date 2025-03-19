@@ -52,7 +52,8 @@ def fetch_spans(util_sec, since_sec):
         return states.Failed(message="Empty time batch")
     else:
         # todo 引入 cache 后直接返回 states.Completed()
-        logger.info(f"Fetch {len(spans_df)} spans, they are {[s.container_id for s in sid_span_map.values()]}.")
+        # logger.info(f"Fetch {len(spans_df)} spans, they are {[s.container_id for s in sid_span_map.values()]}.")
+        logger.info(f"Fetch {len(spans_df)} spans.")
 
     return sid_span_map  # todo 使用更高级的 LRU 结构，取代内置的 map 结构。
 

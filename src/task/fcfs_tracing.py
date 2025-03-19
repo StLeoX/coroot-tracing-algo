@@ -8,8 +8,6 @@ import src.task.utils as utils
 def update_children(time_batch_spans):
     """
     :param time_batch_spans: 是 sid_span_map。
-    :param service_names: container id 列表。
-    :return:
     """
     if len(time_batch_spans) == 0:
         return states.Failed(message="Empty time batch")

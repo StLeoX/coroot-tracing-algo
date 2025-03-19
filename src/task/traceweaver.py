@@ -6,6 +6,7 @@ import copy
 
 import networkx as nx
 
+import src.config as config
 
 # 结构
 class FindAssignmentsResult:
@@ -48,15 +49,19 @@ def FindOrder(all_spans, all_processes, in_span_partitions, out_span_partitions,
         outgoing_spans = []
         outgoing_eps = {}
         for out_ep in out_eps:
-            # todo 不能用 true 计算
+            # 没有正样本，所以不能用正样本来算。
+            # 找到 in_span 对应的 out_span，通过 true_assignments 记录的对应关系，并完成一定的采样。
             # span = all_spans[true_assignments[out_ep][in_span.GetId()]]
-            span = sid_span_map[in_span.span_id]
 
-            # 一条span用一个tuple-4在向量中表示。
-            outgoing_spans.append([span.start_time,  # 单位 milliseconds
-                                   span.duration,  # 单位 milliseconds
-                                   span.GetParentProcess(all_processes, all_spans),
-                                   span.GetChildProcess(all_processes, all_spans)])
+            # 那如果用样本来算，全量样本太多了，设置了采样率。
+            out_span_part=out_span_partitions[out_ep]
+            size = max(config.tw_CG_sampling_threshold, config.tw_CG_sampling_rate * len(out_span_part))
+            for span in out_span_part[:size]:
+                # 一条span用一个tuple-4在向量中表示。
+                outgoing_spans.append([span.start_time,  # 单位 milliseconds
+                                       span.duration,  # 单位 milliseconds
+                                       span.GetParentProcess(all_processes, all_spans),
+                                       span.GetChildProcess(all_processes, all_spans)])
         outgoing_spans.sort(key=lambda x: x[0])
 
         for i, x in enumerate(outgoing_spans):
@@ -98,7 +103,13 @@ def FindOrder(all_spans, all_processes, in_span_partitions, out_span_partitions,
         for j, service_id in enumerate(sorted_grouped_order[i]):
             service_order[i][j] = outgoing_eps[sorted_grouped_order[i][j]]
 
+    info_graph(G)
+    info_graph(G1)
     return G1
+
+
+def info_graph(G):
+    print('[deb]', "Nodes:", list(G.nodes(data=True)), "Edges:", list(G.edges(data=True)))
 
 
 def topological_sort_grouped(G):
@@ -333,12 +344,13 @@ def ComputeSingleProcess(process, in_spans_by_process, out_spans_by_process, all
     call_graph = FindOrder(all_spans, all_processes, in_span_partitions, out_span_partitions, sid_span_map)
 
     instrumented_hops = []
-    true_assignments = None
+    true_assignments = {} # 空值调用方式应该是空字典，而不是 None。
 
     result = predictor.FindAssignments(process, in_span_partitions, out_span_partitions, True, instrumented_hops,
-                                       true_assignments)
+                                       true_assignments, call_graph)
     if result is None:
         return None
 
     result.acc = AccuracyForService(result.pred_assignments, true_assignments, in_span_partitions)
+
     return result

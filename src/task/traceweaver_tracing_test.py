@@ -8,9 +8,13 @@ if __name__ == '__main__':
         sid_span_map = pickle.load(f)
         assert 50, len(sid_span_map)
 
+    # 补丁式修改 spans 输入。
+    for span in sid_span_map.values():
+        span.span_kind = 'client'
+
     service_names = ['172.20.0.8', '172.20.0.5', '172.20.0.2', '172.20.0.6']
 
     from src.task.traceweaver_tracing import update_children
 
     with disable_run_logger():
-        update_children.fn(sid_span_map, service_names)
+        update_children.fn(sid_span_map)
