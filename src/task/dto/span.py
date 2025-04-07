@@ -41,6 +41,8 @@ class Span:
         self.references = ()  # 暂时无用，类似于节点的边？
 
     def __str__(self):
+        if self.trace_id == "None":
+            return f"Span(trace_id={self.trace_id}, span_id={self.span_id})"
         return f"Span(trace_id={self.trace_id}, span_id={self.span_id}, parent_span_id={self.gt_parent_span_id}, " \
                f"start_time={self.start_time}, duration={self.duration}, caller={self.caller}, callee={self.callee})"
 

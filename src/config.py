@@ -30,13 +30,13 @@ if interval:
 
 # TraceWeaver 算法参数
 ## batching 规模（触发时机），论文推荐 100；冒烟测试设为 10
-tw_batch_size = 10
+tw_batch_size = 40
 ## obatch 规模，论文推荐 30；冒烟测试设为 10
-tw_batch_size_mis = 10
+tw_batch_size_mis = 20
 ## TopK 规模，论文推荐 5
 tw_top_size = 3
-## MIS 迭代规模，论文推荐 20_000
-tw_MIS_iterations = 2000
+## MIS 迭代规模，论文推荐 20_000；同时兼顾计算效率。
+tw_MIS_iterations = 10_000
 ## MIS 迭代过程中的 score 步长（使用论文推荐值）
 tw_MIS_score_epsilon = 1e-6
 ## 构建 CG 过程中的头部采样率（论文使用 true_assginment 正样本）

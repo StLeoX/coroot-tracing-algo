@@ -103,8 +103,8 @@ def FindOrder(all_spans, all_processes, in_span_partitions, out_span_partitions,
         for j, service_id in enumerate(sorted_grouped_order[i]):
             service_order[i][j] = outgoing_eps[sorted_grouped_order[i][j]]
 
-    info_graph(G)
-    info_graph(G1)
+    # info_graph(G)
+    # info_graph(G1)
     return G1
 
 

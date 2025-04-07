@@ -24,7 +24,7 @@ WITH trace_ids AS (
          SELECT TraceId, COUNT(DISTINCT SpanId) AS span_count
          FROM trace_ids
                   JOIN otel_traces ON trace_ids.TraceId = otel_traces.TraceId
-         WHERE otel_traces.Timestamp > subtractHours(now(), 1) -- 一小时之内，注意 UTC 时间
+         WHERE otel_traces.Timestamp > subtractMinutes(now(), 10) -- 一小时之内，注意 UTC 时间
          GROUP BY TraceId -- 按 TraceID 聚合
          LIMIT 1000 -- 限制样本数量
      )
@@ -39,14 +39,15 @@ WITH trace_ids AS (
     SELECT TraceId
     FROM otel_traces
     WHERE TraceId = SpanId -- Root Span 条件（推荐）
+--     AND SpanName = 'GET /greeting'  -- 然后限制一下入口服务。
 ),
      filtered_traces AS (
          SELECT TraceId, COUNT(DISTINCT SpanId) AS span_count
          FROM trace_ids
                   JOIN otel_traces ON trace_ids.TraceId = otel_traces.TraceId
-         WHERE otel_traces.Timestamp > subtractHours(now(), 1) -- 一小时之内，注意 UTC 时间
+         WHERE otel_traces.Timestamp between '2025-04-07 08:40:00' and '2025-04-07 08:50:00' -- 一小时之内，注意 UTC 时间
          GROUP BY TraceId -- 按 TraceID 聚合
-         LIMIT 1000 -- 限制样本数量
+--          LIMIT 1000 -- 限制样本数量
      ),
      span_count_stats AS (
          SELECT span_count, COUNT(TraceId) AS trace_count

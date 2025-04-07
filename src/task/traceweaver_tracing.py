@@ -30,7 +30,7 @@ from src.task.dto.span import Span
 VERBOSE = False
 
 
-@task(log_prints=True)
+@task(log_prints=False)
 def update_children(time_batch_spans):
     """
     :param time_batch_spans: 是 sid_span_map。
@@ -63,9 +63,10 @@ def update_children(time_batch_spans):
             for parent_sid, child_sid in mappings.items():
                 # fixme 因为 ComputeDistParams 截断造成的 NA
                 if child_sid[1] == 'NA':
+                    print("[deb] Found an NA child for span:", parent_sid)
                     continue
-                utils.update_parent_mock(time_batch_spans, child_sid[1], parent_sid[1])  # 下标 0 代表 trace_id。
-                # utils.update_parent(time_batch_spans, child_sid[1], parent_sid[1])  # 下标 0 代表 trace_id。
+                # utils.update_parent_mock(time_batch_spans, child_sid[1], parent_sid[1])  # 下标 0 代表 trace_id。
+                utils.update_parent(time_batch_spans, child_sid[1], parent_sid[1])  # 下标 0 代表 trace_id。
 
     return states.Completed(message="Finished `update_children`.")
 
@@ -117,27 +118,17 @@ class TraceWeaverV1(object):
             in_span_end,
     ):
         # 计算分布中的参数值，比如泊松分布中的 lambda 参数。
+        # datetime 转成 float 类型进行计算，因为 datetime 不支持 add 或 sum。
         def ComputeDistParams(ep1, ep2, t1, t2):
-            # 转成 timestamp 类型进行计算，datetime 不支持加法和 sum
             t1 = t1[in_span_start:in_span_end]
             t2 = t2[in_span_start:in_span_end]
-            # print(len(t1), len(t2), in_span_start, in_span_end)
-            # assert len(t1) == len(t2), f"{t1}\n{t2}"
-            # fixme 暂时通过截断的方式处理一下“不对齐”的问题
+
+            # fixme 暂时通过截断的方式处理一下 in_spans 与 out_spans “不对齐”
             if len(t1) != len(t2):
                 minLen = min(len(t1), len(t2))
                 t1 = t1[:minLen]
                 t2 = t2[:minLen]
-                # todo
-                print(f"exclude {max(len(t1), len(t2)) - minLen} spans during `ComputeDistParams`")
-            # # 区间 [start, end) 上的 mean
-            # def mean_diff_microseconds(ts2, ts1, start, end):
-            #     d = 0  # 单位微秒（microseconds）
-            #     for i in range(start, end):
-            #         d += (ts2[i] - ts1[i]).total_seconds() * 1e6
-            #     return d / (end - start)
-
-            # mean = mean_diff_microseconds(t2, t1, 0, len(t1))
+                print(f"Excluded {max(len(t1), len(t2)) - minLen} spans during `ComputeDistParams`")
 
             mean = (sum(t2) - sum(t1)) / len(t1)
             batch_means = []
@@ -751,7 +742,7 @@ class TraceWeaverV3(TraceWeaverV1):
         return False
 
     def GenerateRandomID(self):
-        x = ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(16))
+        x = "skip"+''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(12))
         return x
 
     def BuildTrueDistributions(self, in_span_partitions, out_span_partitions, in_eps, out_eps, true_assignments):
@@ -941,7 +932,7 @@ class TraceWeaverV3(TraceWeaverV1):
             if a[1].trace_id != "None":
                 assignment_without_skips.append(a)
 
-        last_ep, last_span = max(assignment_without_skips[1:], key=lambda x: x[1].start_mus + x[1].duration_mus)
+        last_ep, last_span = max(assignment_without_skips[1:], key=lambda x: x[1].start_time + x[1].duration)
 
         for (current_ep, current_span) in assignment[1:]:
             before_eps = call_graph.in_edges(current_ep)
@@ -961,34 +952,34 @@ class TraceWeaverV3(TraceWeaverV1):
                     if b_span.trace_id == "None":
                         valid_spans = FindValidAncestor(b_ep)
                         if valid_spans == None:
-                            sub_cost = self.GetEpPairCost(first_ep, current_ep, first_span.start_mus,
-                                                          current_span.start_mus, normalized)
+                            sub_cost = self.GetEpPairCost(first_ep, current_ep, first_span.start_time,
+                                                          current_span.start_time, normalized)
                             cost += sub_cost
                             num_mappings += 1
                         else:
-                            latest = max(valid_spans, key=lambda x: x[1].start_mus + x[1].duration_mus)
-                            sub_cost = self.GetEpPairCost(latest[0], current_ep, latest[1].start_mus,
-                                                          current_span.start_mus, normalized)
+                            latest = max(valid_spans, key=lambda x: x[1].start_time + x[1].duration)
+                            sub_cost = self.GetEpPairCost(latest[0], current_ep, latest[1].start_time,
+                                                          current_span.start_time, normalized)
                             cost += sub_cost
                             num_mappings += 1
 
                         continue
 
-                    sub_cost = self.GetEpPairCost(before_ep, current_ep, b_span.start_mus + b_span.duration_mus,
-                                                  current_span.start_mus, normalized)
+                    sub_cost = self.GetEpPairCost(before_ep, current_ep, b_span.start_time + b_span.duration,
+                                                  current_span.start_time, normalized)
                     cost += sub_cost
                     num_mappings += 1
 
             if len(call_graph.in_edges(current_ep)) == 0:
-                sub_cost = self.GetEpPairCost(first_ep, current_ep, first_span.start_mus, current_span.start_mus,
+                sub_cost = self.GetEpPairCost(first_ep, current_ep, first_span.start_time, current_span.start_time,
                                               normalized)
                 cost += sub_cost
                 num_mappings += 1
 
             if current_ep == last_ep:
                 sub_cost = self.GetEpPairCost(current_ep, first_ep,
-                                              current_span.start_mus + current_span.duration_mus,
-                                              first_span.start_mus + first_span.duration_mus, normalized)
+                                              current_span.start_time + current_span.duration,
+                                              first_span.start_time + first_span.duration, normalized)
                 cost += sub_cost
                 num_mappings += 1
 
@@ -1014,14 +1005,14 @@ class TraceWeaverV3(TraceWeaverV1):
 
             if i == len(assignment):
                 curr_ep = assignment[0].GetParentProcess(self.all_processes, self.all_spans)
-                curr_time = assignment[0].start_mus + assignment[0].duration_mus
+                curr_time = assignment[0].start_time + assignment[0].duration
                 cost += self.GetEpPairCost(prev_ep, curr_ep, prev_time, curr_time, normalized)
             else:
                 if assignment[i].trace_id != "None":
                     num_mappings += 1
                     if i != 0:
                         curr_ep = assignment[i].GetChildProcess(self.all_processes, self.all_spans)
-                        curr_time = assignment[i].start_mus
+                        curr_time = assignment[i].start_time
                         cost += self.GetEpPairCost(prev_ep, curr_ep, prev_time, curr_time, normalized)
 
                     prev_ep = (
@@ -1030,9 +1021,9 @@ class TraceWeaverV3(TraceWeaverV1):
                         else assignment[i].GetChildProcess(self.all_processes, self.all_spans)
                     )
                     prev_time = (
-                        assignment[i].start_mus
+                        assignment[i].start_time
                         if i == 0
-                        else assignment[i].start_mus + assignment[i].duration_mus
+                        else assignment[i].start_time + assignment[i].duration
                     )
 
         return cost / (num_mappings)
@@ -1349,8 +1340,15 @@ class TraceWeaverV3(TraceWeaverV1):
         def ComputeDistParams(ep1, ep2, t1, t2):
             t1 = t1[in_span_start:in_span_end]
             t2 = t2[in_span_start:in_span_end]
-            print(len(t1), len(t2), in_span_start, in_span_end)
-            assert len(t1) == len(t2)
+
+            # fixme 暂时通过截断的方式处理一下 in_spans 与 out_spans “不对齐”
+            if len(t1) != len(t2):
+                minLen = min(len(t1), len(t2))
+                t1 = t1[:minLen]
+                t2 = t2[:minLen]
+                if VERBOSE:
+                    print(f"Excluded {max(len(t1), len(t2)) - minLen} spans during `ComputeDistParams`")
+
             mean = (sum(t2) - sum(t1)) / len(t1)
             batch_means = []
             nbatches = 10
@@ -1593,7 +1591,8 @@ class TraceWeaverV3(TraceWeaverV1):
                     if out_span_id == ("NA", "NA") or out_span_id == ('Skip', 'Skip'):
                         continue
                     else:
-                        print(out_span_id)
+                        if VERBOSE:
+                            print(out_span_id)
                         out_span = self.sid_span_map[out_span_id[1]]
                         durations.append(out_span.start_time - in_span.start_time)
 
@@ -1651,8 +1650,9 @@ class TraceWeaverV3(TraceWeaverV1):
                         print(f"Failed to fit GMM with {n} components: {e}")
                         continue
                 n_selected = n_comps[np.argmin([m.bic(durations) for m in models])]
-                print("Edge:", ep1, ep2)
-                print("No. of Gaussians selected: ", n_selected)
+                if VERBOSE:
+                    print("Edge:", ep1, ep2)
+                    print("No. of Gaussians selected: ", n_selected)
 
                 g = mixture.GaussianMixture(n_components=n_selected, random_state=100)
                 g.fit(durations)
@@ -1668,7 +1668,8 @@ class TraceWeaverV3(TraceWeaverV1):
 
         for i in range(2):
 
-            print("STARTING ITERATION: ", i)
+            if VERBOSE:
+                print("STARTING ITERATION: ", i+1)
 
             in_ep = list(in_span_partitions.keys())[0]
             for out_ep in out_span_partitions.keys():
@@ -1712,6 +1713,8 @@ class TraceWeaverV3(TraceWeaverV1):
         pos = self.available_skips_per_window[ep][window].index(minval)
         self.available_skips_per_window[ep][window][pos][1] += 1
 
+        if VERBOSE:
+            print("[deb] Used skip", self.available_skips_per_window[ep][window][pos][0])
         return self.available_skips_per_window[ep][window][pos][0]
 
     def DetectBoundaries(
@@ -1793,6 +1796,7 @@ class TraceWeaverV3(TraceWeaverV1):
 
         def TackleMismatch(ep):
 
+            # skip 填充量预算
             skip_budget = self.overall_skip_budget[ep]
 
             self.skip_count_per_window[ep] = {}
@@ -1823,6 +1827,9 @@ class TraceWeaverV3(TraceWeaverV1):
                 if (window_start, window_end) not in self.available_skips_per_window[ep]:
                     self.available_skips_per_window[ep][(window_start, window_end)] = []
 
+                # 构造 skip 跨度
+                # 可以看到，skip 是通过 time_window 进行索引的（保存在 available_skips_per_window），所以并没有准确的 timestamp。
+                # 因为 skip 的 timestamp、duration 都是空的，所以它并不参与 dist 计算？因此在 ComputeDistParams 直接截断就可以了？
                 for i in range(int(self.skip_count_per_window[ep][(window_start, window_end)])):
                     new_span_id = self.GenerateRandomID()
                     skip_span = Span(
@@ -1834,6 +1841,8 @@ class TraceWeaverV3(TraceWeaverV1):
                         "None",
                         "None",
                     )
+                    # todo skip 是如何加入到 out_spans 当中的？
+                    # 其实并没有直接添加到原始的、真实的 out_spans，而是在 Traverse 过程中被使用，作为连接真实 span 的中间 span。
                     self.available_skips_per_window[ep][(window_start, window_end)].append([skip_span, 0])
 
         self.skip_count_per_window = {}
@@ -1997,8 +2006,9 @@ class TraceWeaverV3(TraceWeaverV1):
                                                 call_graph, batch_size_mis)
         window_ends = [i[1] for i in self.span_windows]
 
-        print("Len(window ends): ", len(window_ends))
-        print("Max batch size: ", max([x[1] - x[0] for x in self.span_windows]))
+        if VERBOSE:
+            print("Len(window ends): ", len(window_ends))
+            print("Max batch size: ", max([x[1] - x[0] for x in self.span_windows]))
         cnt = 0
         cnt_unassigned = 0
         not_best_count = 0
@@ -2020,7 +2030,8 @@ class TraceWeaverV3(TraceWeaverV1):
 
         equal_eps = []
         for ep in out_eps:
-            print("Endpoint:", ep + ", ", "Num spans:", len(out_span_partitions[ep]))
+            if VERBOSE:
+                print("Current process:",process + ", ", "Out endpoint:", ep + ", ", "Count of spans:", len(out_span_partitions[ep]))
             if self.overall_skip_budget[ep] == 0:
                 equal_eps.append(ep)
             else:
@@ -2029,7 +2040,7 @@ class TraceWeaverV3(TraceWeaverV1):
         if self.true_dist:
             self.BuildTrueDistributions(in_span_partitions, out_span_partitions, in_eps, out_eps, true_assignments)
         else:
-            pass
+            pass # always this way
             # self.BuildDistributions(process, in_span_partitions, out_span_partitions, in_eps, out_eps)
 
         # if method == "MaxScoreBatchParallelWithoutIterations":
@@ -2045,7 +2056,8 @@ class TraceWeaverV3(TraceWeaverV1):
 
         for iteration in range(iterations):
             start_time = time.time()
-            print("iteration: ", iteration)
+            if VERBOSE:
+                print("iteration: ", iteration)
             cnt = 0
             cnt_unassigned = 0
             not_best_count = 0
@@ -2065,7 +2077,8 @@ class TraceWeaverV3(TraceWeaverV1):
                         if len(equal_eps) == len(out_eps):
                             self.ComputeEpPairDistParams3(in_span_partitions, out_span_partitions, out_eps, cnt,
                                                           min(len(in_spans), cnt + batch_size), call_graph)
-                    print("Finished %d spans, unassigned spans: %d" % (cnt, cnt_unassigned))
+                    if VERBOSE:
+                        print("V3 finished %d spans, unassigned spans: %d" % (cnt, cnt_unassigned))
 
                 start_t = time.time()
                 top_k = self.FindTopKAssignments(in_eps, in_span, out_eps, out_span_partitions_copy, topK,
@@ -2117,8 +2130,8 @@ class TraceWeaverV3(TraceWeaverV1):
             acc = tw.AccuracyForService(all_assignments, true_assignments, in_span_partitions)
 
             print("Accuracy at iteration %d for process %s: %.2f" % (iteration, process, acc * 100))
-            print("Iteration time: %.2f seconds" % (time.time() - start_time))
-            print("Candidate Finder Time: %.2f seconds" % sum_t)
+            # print("Iteration time: %.2f seconds" % (time.time() - start_time))
+            # print("Candidate Finder Time: %.2f seconds" % sum_t)
 
         return tw.FindAssignmentsResult(all_assignments, all_topk_assignments, None, not_best_count)
 
@@ -2181,7 +2194,7 @@ class TraceWeaverV3(TraceWeaverV1):
         '''
         best_mis = None
         best_score = -math.inf
-        for i in range(20000):
+        for i in range(config.tw_MIS_iterations):
             try:
                 mis = nx.maximal_independent_set(G)  # 20000 iterations
             except:
@@ -2304,8 +2317,7 @@ class TraceWeaverV3(TraceWeaverV1):
             try:
                 mwis = gurobi_mwis.maximum_weighted_independent_set(adjacency_matrix, weights, verbose=False)
             except:
-                print("Gurobi MIS error!")
-                assert False
+                assert not "Gurobi MIS error!"
             score = sum([G.nodes[tuple(nodes_list[n])]['weight'] for n in mwis])
             if best_mwis is None or score > best_score:
                 best_mwis = [tuple(nodes_list[n]) for n in mwis]

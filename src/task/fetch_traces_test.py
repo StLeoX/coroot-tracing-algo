@@ -55,7 +55,7 @@ class Test_fetch_spans(unittest.TestCase):
         self.assertEqual(50, len(sid_span_map))
 
         # 注意：改了 Span 的类定义，要重新生成 pkl 数据包
-        print(sid_span_map.popitem()[1])
+        # print(sid_span_map.popitem()[1])
 
         with open("/root/Source/obser/coroot-tracing-algo/test/testdata/dataset1.pkl", "wb") as f:
             pickle.dump(sid_span_map, f)
@@ -71,4 +71,4 @@ class Test_fetch_spans(unittest.TestCase):
         with open("/root/Source/obser/coroot-tracing-algo/test/testdata/dataset1.pkl", "rb") as f:
             sid_span_map: dict = pickle.load(f)
             self.assertEqual(50, len(sid_span_map))
-            print(sid_span_map.popitem()[1])
+            # print(sid_span_map.popitem()[1])
