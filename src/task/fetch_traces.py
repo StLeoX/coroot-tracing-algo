@@ -28,7 +28,7 @@ def fetch_spans(util_sec, since_sec):
                 f"FROM {t_trace} " \
                 f"WHERE Timestamp > {since_sec.strftime(timestamp_format)} " \
                 f"AND Timestamp <= {util_sec.strftime(timestamp_format)}" \
-                f"{SpanFilter.exclude_monitor_spans()} " \
+                f"{SpanFilter.include()} " \
                 f"ORDER BY Timestamp"
     logger.debug(fetch_sql)
 
@@ -62,7 +62,7 @@ class SpanFilter:
     # 白名单
     @staticmethod
     def include():
-        return "AND position(ContainerID, 'demo') > 0 "
+        return "AND position(ContainerID, 'sock-shop') > 0 "
 
     # 黑名单
     @staticmethod

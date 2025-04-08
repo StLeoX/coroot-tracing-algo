@@ -58,12 +58,28 @@ select TraceId,
        NetSockPeerAddr,
        ServiceName
 from otel_traces
-where not position(ContainerID, 'coroot')
+where position(ContainerID, 'sock-shop') > 0
 order by Timestamp desc
 limit 10;
+
+-- 查一下服务名
+select distinct ResourceAttributes['container.id']
+from otel_traces;
+
+select distinct ResourceAttributes['container.id'] AS ContainerID
+from otel_traces
+where position(ContainerID, 'sock-shop') > 0;
+
 
 -- 最新数据
 select Timestamp
 from l7_events_ss
 order by Timestamp desc
 limit 20;
+
+select count()
+from otel_traces
+where position(ResourceAttributes['container.id'], 'sock-shop') > 0
+  and Timestamp > '2025-04-08 07:20:00'
+  and Timestamp < '2025-04-08 07:50:00'
+;

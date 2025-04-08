@@ -55,7 +55,7 @@ def FindOrder(all_spans, all_processes, in_span_partitions, out_span_partitions,
 
             # 那如果用样本来算，全量样本太多了，设置了采样率。
             out_span_part=out_span_partitions[out_ep]
-            size = max(config.tw_CG_sampling_threshold, config.tw_CG_sampling_rate * len(out_span_part))
+            size = max(config.tw_CG_sampling_threshold, int(config.tw_CG_sampling_rate * len(out_span_part)))
             for span in out_span_part[:size]:
                 # 一条span用一个tuple-4在向量中表示。
                 outgoing_spans.append([span.start_time,  # 单位 milliseconds

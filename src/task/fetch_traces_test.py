@@ -30,7 +30,7 @@ class Test_fetch_spans(unittest.TestCase):
         import src.task.init_variables
         src.task.init_variables.t_trace = t_trace_test
 
-        since_sec = datetime.strptime('2024-11-11 11:00:00.0', timestamp_format)
+        since_sec = datetime.strptime('2024-11-11 11:00:00.0', timestamp_format_no_quote)
         util_sec = since_sec + timedelta(seconds=5)
 
         # import FUT
@@ -54,14 +54,11 @@ class Test_fetch_spans(unittest.TestCase):
         # be sure it returns the map
         self.assertEqual(50, len(sid_span_map))
 
-        # 注意：改了 Span 的类定义，要重新生成 pkl 数据包
-        # print(sid_span_map.popitem()[1])
-
         with open("/root/Source/obser/coroot-tracing-algo/test/testdata/dataset1.pkl", "wb") as f:
             pickle.dump(sid_span_map, f)
 
     def test_fetch_services_names(self):
-         # import FUT
+        # import FUT
         from src.task.fetch_services import fetch_services
         with disable_run_logger():
             services = fetch_services.fn()
@@ -71,4 +68,25 @@ class Test_fetch_spans(unittest.TestCase):
         with open("/root/Source/obser/coroot-tracing-algo/test/testdata/dataset1.pkl", "rb") as f:
             sid_span_map: dict = pickle.load(f)
             self.assertEqual(50, len(sid_span_map))
-            # print(sid_span_map.popitem()[1])
+
+    def test_dataset2_sock_shop(self):
+        since_sec = datetime.strptime('2025-04-08 07:40:00.0', timestamp_format_no_quote)
+        util_sec = datetime.strptime('2025-04-08 07:50:00.0', timestamp_format_no_quote)
+
+        # import FUT
+        from src.task.fetch_traces import fetch_spans
+        with disable_run_logger():
+            sid_span_map = fetch_spans.fn(util_sec, since_sec)
+
+        # be sure it returns the map
+        self.assertEqual(3257, len(sid_span_map))
+
+        with open("/root/Source/obser/coroot-tracing-algo/test/testdata/dataset2.pkl", "wb") as f:
+            pickle.dump(sid_span_map, f)
+
+    def test_dataset2_load(self):
+        with open("/root/Source/obser/coroot-tracing-algo/test/testdata/dataset2.pkl", "rb") as f:
+            sid_span_map: dict = pickle.load(f)
+            self.assertEqual(3257, len(sid_span_map))
+            for s in list(sid_span_map.values())[:10]:
+                print(s)
