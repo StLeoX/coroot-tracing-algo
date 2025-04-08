@@ -30,11 +30,11 @@ if interval:
 
 # TraceWeaver 算法参数
 ## batching 规模（触发时机），论文推荐 100；冒烟测试设为 10
-tw_batch_size = 40
+tw_batch_size = 100
 ## obatch 规模，论文推荐 30；冒烟测试设为 10
-tw_batch_size_mis = 20
+tw_batch_size_mis = 30
 ## TopK 规模，论文推荐 5
-tw_top_size = 3
+tw_top_size = 5
 ## MIS 迭代规模，论文推荐 20_000；同时兼顾计算效率。
 tw_MIS_iterations = 10_000
 ## MIS 迭代过程中的 score 步长（使用论文推荐值）
@@ -42,6 +42,8 @@ tw_MIS_score_epsilon = 1e-6
 ## 构建 CG 过程中的头部采样率（论文使用 true_assginment 正样本）
 tw_CG_sampling_rate = 0.2
 tw_CG_sampling_threshold = 20
+## 是否取 parallel 模式
+tw_parallel = True
 
 ## 处理时间落后于墙上时间的延迟，为了适应 pipeline 中的时延。
 monitoring_delay_sec = 1
@@ -55,3 +57,4 @@ timestamp_format_no_quote = '%Y-%m-%d %H:%M:%S.%f'  # 通常是微妙精度。
 
 # 是否调试模式
 DEBUG_MODE = True
+VERBOSE_MODE = False

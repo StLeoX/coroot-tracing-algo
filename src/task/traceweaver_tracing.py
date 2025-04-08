@@ -25,9 +25,8 @@ import src.task.traceweaver as tw
 import src.task.utils as utils
 from src.task.dto.span import Span
 
-
 # Debug 视图
-VERBOSE = False
+VERBOSE = config.VERBOSE_MODE
 
 
 @task(log_prints=False)
@@ -48,6 +47,9 @@ def update_children(time_batch_spans):
 
     in_spans_by_process, out_spans_by_process = tw.AggregateSpans(spans, service_names)
 
+    # for acc
+    count_fail, count_succ = 0, 0
+
     # 遍历系统中的全体 process
     for process in service_names:
         result = tw.ComputeSingleProcess(process, in_spans_by_process, out_spans_by_process, service_names,
@@ -63,11 +65,16 @@ def update_children(time_batch_spans):
             for parent_sid, child_sid in mappings.items():
                 # fixme 因为 ComputeDistParams 截断造成的 NA
                 if child_sid[1] == 'NA':
-                    print("[deb] Found an NA child for span:", parent_sid)
+                    # print("[deb] Found an NA child for span:", parent_sid)
+                    count_fail += 1
                     continue
-                # utils.update_parent_mock(time_batch_spans, child_sid[1], parent_sid[1])  # 下标 0 代表 trace_id。
-                utils.update_parent(time_batch_spans, child_sid[1], parent_sid[1])  # 下标 0 代表 trace_id。
+                if config.DEBUG_MODE:
+                    utils.update_parent_mock(time_batch_spans, child_sid[1], parent_sid[1])  # 下标 0 代表 trace_id。
+                else:
+                    utils.update_parent(time_batch_spans, child_sid[1], parent_sid[1])  # 下标 0 代表 trace_id。
+                count_succ += 1
 
+    print(f"NA child: {count_fail}/{count_fail + count_succ} = {count_fail/(count_fail + count_succ)}")
     return states.Completed(message="Finished `update_children`.")
 
 
@@ -80,6 +87,10 @@ class TraceWeaverV1(object):
         self.instrumented_hops = []
         self.true_assignments = None
         self.normal = True
+
+    # 附加一些属性
+    def AppendSidMap(self, sid_span_map):
+        self.sid_span_map = sid_span_map
 
     # 通过 trace_id 先验知识，判断服务是否串行（sequential）。
     # 只要时间区间存在一个违背，那就判别为并行（parallel）。
@@ -186,6 +197,11 @@ class TraceWeaverV1(object):
     # ep1:ep1: 上下游端点
     # t1:t2: 相应的时间戳
     def GetEpPairCost(self, ep1, ep2, t1, t2, normalized=False):
+        # fixme 更重要的是为什么把 (ep1, ep2) 传进来
+        # 如果是 cost = 0 相当于跳过 (ep1, ep2)，因为是累加的方式。
+        if (ep1, ep2) not in self.services_times:
+            return 0
+
         dist_value = self.services_times[(ep1, ep2)]
         if type(dist_value) is list:
             # 高斯核密度估计
@@ -209,6 +225,7 @@ class TraceWeaverV1(object):
                 else:
                     p = scipy.stats.norm.pdf(t2 - t1, loc=mean, scale=std)
             else:
+                # 该 PDF 的特点：值越小（即越接近负无穷大），越不可能；值越大（即越接近 0），越有可能。
                 p = scipy.stats.expon.logpdf(t2 - t1, scale=mean)
             return p
 
@@ -732,9 +749,6 @@ class TraceWeaverV3(TraceWeaverV1):
         self.pick_first = False
         self.dynamism = False
 
-    def AppendSidMap(self,sid_span_map):
-        self.sid_span_map=sid_span_map
-
     def ContainsSkip(self, assignment):
         for i in assignment:
             if i.trace_id == "None":
@@ -742,7 +756,7 @@ class TraceWeaverV3(TraceWeaverV1):
         return False
 
     def GenerateRandomID(self):
-        x = "skip"+''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(12))
+        x = "skip" + ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(12))
         return x
 
     def BuildTrueDistributions(self, in_span_partitions, out_span_partitions, in_eps, out_eps, true_assignments):
@@ -1344,6 +1358,8 @@ class TraceWeaverV3(TraceWeaverV1):
             # fixme 暂时通过截断的方式处理一下 in_spans 与 out_spans “不对齐”
             if len(t1) != len(t2):
                 minLen = min(len(t1), len(t2))
+                if minLen == 0:
+                    return
                 t1 = t1[:minLen]
                 t2 = t2[:minLen]
                 if VERBOSE:
@@ -1669,7 +1685,7 @@ class TraceWeaverV3(TraceWeaverV1):
         for i in range(2):
 
             if VERBOSE:
-                print("STARTING ITERATION: ", i+1)
+                print("STARTING ITERATION: ", i + 1)
 
             in_ep = list(in_span_partitions.keys())[0]
             for out_ep in out_span_partitions.keys():
@@ -2031,7 +2047,8 @@ class TraceWeaverV3(TraceWeaverV1):
         equal_eps = []
         for ep in out_eps:
             if VERBOSE:
-                print("Current process:",process + ", ", "Out endpoint:", ep + ", ", "Count of spans:", len(out_span_partitions[ep]))
+                print("Current process:", process + ", ", "Out endpoint:", ep + ", ", "Count of spans:",
+                      len(out_span_partitions[ep]))
             if self.overall_skip_budget[ep] == 0:
                 equal_eps.append(ep)
             else:
@@ -2040,7 +2057,7 @@ class TraceWeaverV3(TraceWeaverV1):
         if self.true_dist:
             self.BuildTrueDistributions(in_span_partitions, out_span_partitions, in_eps, out_eps, true_assignments)
         else:
-            pass # always this way
+            pass  # always this way
             # self.BuildDistributions(process, in_span_partitions, out_span_partitions, in_eps, out_eps)
 
         # if method == "MaxScoreBatchParallelWithoutIterations":

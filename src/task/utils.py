@@ -8,8 +8,16 @@ from src.task.init_variables import *
 
 
 def update_parent_mock(sid_span_map, child_span_id, parent_span_id):
-    print(f"[deb] span_id triple (child - parent - gt_parent): "
-          f"{child_span_id} - {parent_span_id} - {sid_span_map[child_span_id].gt_parent_span_id}")
+    if child_span_id == 'Skip':
+        print(f"[deb] span_id skip")
+        return
+    gt_parent = sid_span_map[child_span_id].gt_parent_span_id
+    if gt_parent:
+        print(f"[deb] span_id triple (child - parent - gt_parent): "
+              f"{child_span_id} - {parent_span_id} - {gt_parent}")
+    else:
+        print(f"[deb] span_id tuple (child - parent): "
+              f"{child_span_id} - {parent_span_id}")
 
 
 def update_parent(sid_span_map, child_span_id, parent_span_id):

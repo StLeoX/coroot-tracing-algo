@@ -54,7 +54,7 @@ def FindOrder(all_spans, all_processes, in_span_partitions, out_span_partitions,
             # span = all_spans[true_assignments[out_ep][in_span.GetId()]]
 
             # 那如果用样本来算，全量样本太多了，设置了采样率。
-            out_span_part=out_span_partitions[out_ep]
+            out_span_part = out_span_partitions[out_ep]
             size = max(config.tw_CG_sampling_threshold, int(config.tw_CG_sampling_rate * len(out_span_part)))
             for span in out_span_part[:size]:
                 # 一条span用一个tuple-4在向量中表示。
@@ -344,9 +344,10 @@ def ComputeSingleProcess(process, in_spans_by_process, out_spans_by_process, all
     call_graph = FindOrder(all_spans, all_processes, in_span_partitions, out_span_partitions, sid_span_map)
 
     instrumented_hops = []
-    true_assignments = {} # 空值调用方式应该是空字典，而不是 None。
+    true_assignments = {}  # 空值调用方式应该是空字典，而不是 None。
 
-    result = predictor.FindAssignments(process, in_span_partitions, out_span_partitions, True, instrumented_hops,
+    result = predictor.FindAssignments(process, in_span_partitions, out_span_partitions, config.tw_parallel,
+                                       instrumented_hops,
                                        true_assignments, call_graph)
     if result is None:
         return None

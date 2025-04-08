@@ -15,8 +15,14 @@ class Span:
     ):
         self.span_id: str = span_id
         self.trace_id: str = trace_id
+
+        # for skip span
         if trace_id == "None":
+            self.start_time = "None" # fixme 现在抄的是 @trace_reconstructor/ports/python/algorithms/traceweaver_v3.py:316
+            self.duration = "None"
             return  # 针对 "Skip"，只构造相应的 trace_id 即可。
+
+        # for regular span
         self.parent_span_id: str = ''
         self.gt_parent_span_id: str = ''  # the GroundTruth parent span_id
 
@@ -65,6 +71,11 @@ class Span:
         return all_processes[self.trace_id][
             all_spans[self.children_spans[0]].process_id
         ]
+
+    def __lt__(self, other):
+        if self.start_time == "None" or other.start_time == "None":
+            return False
+        return self.start_time < other.start_time
 
     # 拿到当前 span 的上游服务，目前保存在 caller ip 当中。
     def GetParentProcess(self, all_processes, all_spans):
